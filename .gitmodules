@@ -1,0 +1,3 @@
+[submodule "src/VItA"]
+	path = src/VItA
+	url = git@github.com:remihndz/VItA.git
