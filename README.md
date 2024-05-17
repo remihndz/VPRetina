@@ -7,7 +7,7 @@ Clone the repository:
    git clone https://github.com/remihndz/VPRetina.git
    cd VPRetina
 
-Build and install the VItA libray (more details in [this README](./src/VItA/README.md)):
+Build and install the VItA libray (more details in [this README](https://github.com/remihndz/VItA/blob/040e2d0267054fa9b4442b891862555986d99e3c/README.md)):
 
    cd src/VItA/
    mkdir vita_build
