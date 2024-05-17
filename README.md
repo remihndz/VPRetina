@@ -31,3 +31,8 @@ In the ccmake interface, press "c" to configure, make sure is set to current dir
 make
 ```
 
+
+# Publications
+
+Rémi J. Hernandez, Savita Madhusudhan, Yalin Zheng, Wahbi K. El-Bouri; Linking Vascular Structure and Function: Image-Based Virtual Populations of the Retina. Invest. Ophthalmol. Vis. Sci. 2024;65(4):40. https://doi.org/10.1167/iovs.65.4.40.
+
