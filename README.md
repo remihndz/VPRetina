@@ -7,6 +7,9 @@ Clone the repository:
    git clone https://github.com/remihndz/VPRetina.git
    cd VPRetina
 ```
+
+## Installation of C++ libraries
+
 Build and install the VItA libray (more details in [this README](https://github.com/remihndz/VItA/blob/040e2d0267054fa9b4442b891862555986d99e3c/README.md)):
 ```
 cd src/VItA/
@@ -30,6 +33,13 @@ In the ccmake interface, press "c" to configure, make sure is set to current dir
 ```
 make
 ```
+
+## Python virtual environment
+
+TODO:
+	- Figure out what are the necessary packages
+	- Make sure code is commented and as clean as possible
+	- Create the requirement.txt
 
 
 # Publications
