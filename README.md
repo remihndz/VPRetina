@@ -34,12 +34,16 @@ make
 ```
 
 ## Python virtual environment
-
-TODO:
-	- Figure out what are the necessary packages
-	- Make sure code is commented and as clean as possible
-	- Create the requirement.txt
-
+Install the necessary python packages in a new conda environment:
+```
+conda create --name <env_name> python=3.10
+conda activate <env_name>
+python -m pip install -r requirements.txt
+```
+or using pip (assuming you have python version >=3.10 installed):
+```
+python3.1x -m pip install -r requirements.txt
+```
 
 # Usage
 Virtual vasculatures can be generated using the [scripts](./scripts) provided.<br>
