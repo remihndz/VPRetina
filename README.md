@@ -3,7 +3,7 @@
 This code has been tested on Linux (Ubuntu 22.04) with Python 3.10.<br>
 Clone the repository:
 ```
-   git clone https://github.com/remihndz/VPRetina.git
+   git clone git@github.com:remihndz/VPRetina.git
    cd VPRetina
 ```
 
