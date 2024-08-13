@@ -1,0 +1,376 @@
+import os
+import networkx as nx
+import numpy as np
+import vtk
+
+def ConfFileStage0(confFileName:str,
+                   backboneFileName:str,
+                   outputFileName:str,
+                   **kwargs):
+    config_str = f'''// // // Files (vtkPolyData and .cco) describing the domain to be vascularized
+// Output filename (without extension)
+{outputFileName}
+// // Pre-existing vasculature (root tree)
+{backboneFileName}
+// // // Simulation parameters
+// Number of terminal vessels for each stage
+{kwargs.get('nTerm',100)}
+// l_lim_fr - Correction step factor - Eq (14)
+{kwargs.get('lLimFr',0.8)}
+// gamma - Power law coefficient in Murray's law - Eq (3)
+{kwargs.get('gamma',3.0)}
+// delta - Symmetry ratio parameter - Eq (4)
+{kwargs.get('delta',0.8)}
+// eta - viscosity in cP - Starting point for the fixed point iteration scheme? - Eq (7)
+{kwargs.get('eta',0.36)}
+// Viscosity Tolerance - Precision of the fixed point iteration (strongly impact computing time)
+{kwargs.get('viscosityTolerance',1e-5)}
+// theta_min - Minimum bifurcation angle - As a fraction of PI - Eq (17)
+{kwargs.get('thetaMin',0.22)}
+// perfusion area factor - Eq (12)
+{kwargs.get('perfAreaFr', 1.0)}
+// Close neighbourhood factor - Algorithm 2, line 15
+{kwargs.get('closeNeighFr', 1.0)}
+// Flow parameters, in muL/min & mmHg - to be converted to basic units
+15.0
+50.0
+2.3 '''
+    with open(confFileName, 'w') as f:
+        f.write(config_str)
+    return
+
+def ConfFileStage1(confFileName:str,
+                   backboneFileName:str,
+                   outputFileName:str,
+                   nTerm0:int,
+                   nTerm1:int,
+                   **kwargs):
+    config_str = f'''// // // Files (vtkPolyData and .cco) describing the domain to be vascularized
+// Output filename (without extension)
+{outputFileName}
+// // Pre-existing vasculature (root tree)
+{backboneFileName}
+// // // Simulation parameters
+// Number of terminal vessels for each stage
+{nTerm0}
+{nTerm1}
+// l_lim_fr - Correction step factor - Eq (14)
+{kwargs.get('lLimFr',0.8)}
+// gamma - Power law coefficient in Murray's law - Eq (3)
+{kwargs.get('gamma',2.85)}
+// delta - Symmetry ratio parameter - Eq (4)
+{kwargs.get('delta',0.0)}
+// eta - viscosity in cP - Starting point for the fixed point iteration scheme? - Eq (7)
+{kwargs.get('eta',0.36)}
+// Viscosity Tolerance - Precision of the fixed point iteration (strongly impact computing time)
+{kwargs.get('viscosityTolerance',1e-5)}
+// theta_min - Minimum bifurcation angle - As a fraction of PI - Eq (17)
+{kwargs.get('thetaMin',0.22)}
+// perfusion area factor - Eq (12)
+{kwargs.get('perfAreaFr', 0.2)}
+// Close neighbourhood factor - Algorithm 2, line 15
+{kwargs.get('closeNeighFr', 1.0)}
+'''
+    with open(confFileName, 'w') as f:
+        f.write(config_str)
+    return
+
+
+
+class VesselTree(nx.DiGraph):
+
+    def __init__(self, ccoFile:str=None) -> None:
+        super().__init__()
+        if ccoFile:
+            print(ccoFile)
+            self.CreateGraph(ccoFile)
+            nx.set_node_attributes(self, values=0, name='plexus')
+            # print(f"FOUND {len([n for n,d in self.in_degree if d==0])} roots.")
+
+    def CreateGraph(self, ccoFile : str) -> nx.DiGraph:
+
+        self.ccoFile = os.path.abspath(ccoFile) # From what the tree has been constructed
+        self.clear
+        with open(ccoFile, 'r') as f:
+            token = f.readline()
+            token = f.readline().split() # Tree information            
+            f.readline() # Blank line
+            f.readline() # *Vessels
+            nVessels = int(f.readline())
+            print(f'The tree has {nVessels} vessels.')
+
+            edges = dict()            
+            for i in range(nVessels):
+                vessel = f.readline().split()
+                vesselId = int(vessel[0])
+                x1,x2 = np.array([float(x) for x in vessel[1:4]]), np.array([float(x) for x in vessel[4:7]])
+                r = float(vessel[12]) 
+                l = np.linalg.norm(x1-x2)
+                edges[vesselId] = {'radius':r, 'length':l,'start':x1,'end':x2,'stage':vessel[-1]}
+            f.readline() # Blank line
+            f.readline() # *Connectivity
+
+            rootId = None
+            for i in range(nVessels):                
+                vessel = f.readline().split()
+                vesselId = int(vessel[0])
+                edges[vesselId]['parent'] = int(vessel[1])
+                if int(vessel[1])==-1:
+                    rootId = vesselId
+                    print(f"RootID is {rootId}")
+                edges[vesselId]['descendants'] = [int(descendant) for descendant in vessel[2:]]
+            vesselId, node, nodep = rootId, 0, 1 # Start with the root            
+            
+            def AddVesselToGraph(vesselId, startNode):
+                endNode = self.number_of_nodes()
+                vessel = edges.pop(vesselId)
+                self.add_node(endNode, position=vessel['end'], stage=int(vessel.pop('stage')))
+                self.add_edge(startNode, endNode, radius=vessel['radius'], length=vessel['length'], hd=vessel.pop('hd',0.45))
+
+                for descendant in vessel['descendants']:
+                    AddVesselToGraph(descendant, endNode)
+
+            self.add_node(0, position=edges[rootId]['start'], stage=-2)
+            AddVesselToGraph(rootId, 0)                
+
+        tmpLabels, newLabels = {}, {}
+        for i,n in enumerate(nx.topological_sort(self)):
+            tmpLabels[n]=-n
+            newLabels[-n]=i
+        nx.relabel_nodes(self, tmpLabels, copy=False)
+        nx.relabel_nodes(self, newLabels, copy=False)
+
+    def GraphToVTK(self, VTKFileName:str, nodeAttributes:list=[], edgeAttributes:list=[]):
+        # List of nodes
+        G = nx.convert_node_labels_to_integers(self)
+        points = vtk.vtkPoints()
+        points.SetNumberOfPoints(G.number_of_nodes())
+        plexus = vtk.vtkStringArray()
+        plexus.SetName("Plexus")
+        plexusNames = {0:'SVC', 1:'ICP', 2:'DCP'}
+        nodeType = vtk.vtkStringArray()
+        nodeType.SetName("Node type")
+
+        # Other float node attributes
+        othersNodes = []
+        for name in nodeAttributes:
+            array = vtk.vtkDoubleArray()
+            array.SetName(name)
+            othersNodes.append(array)
+                
+        for n, data in G.nodes.data():
+            try:
+                points.SetPoint(n, data['position'])
+            except KeyError:
+                points.SetPoint(n, np.append(data['pos'], 0.0))
+            nodeType.InsertNextValue(data.get('nodeType', 'N/A'))
+            plexus.InsertNextValue(plexusNames[data.get('plexus', 0)])
+
+            for array in othersNodes:
+                name = array.GetName()
+                val = data.get(name, 0)
+                try:
+                    array.InsertNextValue(val)
+                except TypeError:
+                    array.InsertNextValue(np.nan)
+        
+
+        # List of vessels and their data
+        lines  = vtk.vtkCellArray()
+        radius = vtk.vtkDoubleArray()
+        radius.SetName("Radius")
+        others = [vtk.vtkDoubleArray() for _ in edgeAttributes]
+        for name, array in zip(edgeAttributes, others):
+            array.SetName(name)
+            
+        for u,v, data in G.edges.data():
+            line = vtk.vtkLine()
+            line.GetPointIds().SetId(0,u)
+            line.GetPointIds().SetId(1,v)
+            lines.InsertNextCell(line)
+            radius.InsertNextValue(data['radius'])
+            for name, array in zip(edgeAttributes, others):
+                array.InsertNextValue(data[name])
+
+        # Make polydata
+        polydata = vtk.vtkPolyData()
+        polydata.SetPoints(points)
+        polydata.SetLines(lines)
+        polydata.GetPointData().AddArray(nodeType)
+        polydata.GetCellData().AddArray(radius)
+        polydata.GetPointData().AddArray(radius)
+        polydata.GetPointData().AddArray(plexus)
+        for array in others:
+            polydata.GetCellData().AddArray(array)
+        for array in othersNodes:
+            print("Saving", array.GetName())
+            polydata.GetPointData().AddArray(array)
+
+        # Write
+        writer = vtk.vtkXMLPolyDataWriter()
+        writer.SetFileName(VTKFileName)
+        writer.SetInputData(polydata)
+        writer.SetDataModeToBinary()
+        writer.Update()
+        writer.Write()
+
+        del writer, polydata, lines, points, radius, others, plexus, nodeType
+        
+
+class AVGraph(VesselTree):
+    def __init__(self, ccoFile: str=None) -> None:
+        super().__init__(ccoFile)
+        if ccoFile:
+            self._ccoFile = os.path.abspath(ccoFile)
+            self._hasBeenSplit = False
+            self._CRA = self._CRV = None
+            self._SplitAVTree()
+   
+    def _findCRA_CRV(self) -> tuple:
+        '''
+        Find the starting node of the CRA and CRV, 
+        assuming they are connected by an artificial root.
+        The artificial root is deleted from the tree.
+        The CRA is the root's daughter with the smaller radius.
+        Returns a tuple (CRA, CRV) of the node's name. 
+        Returns an empty tuple if the tree has already been split.
+        '''
+        if self._hasBeenSplit:
+            return ()
+        # In the supclass, the nodes are relabeled according to
+        # topological sort. The root should then have label 0.
+        root = [n for n,d in self.in_degree if d==0]
+        assert len(root)==1, "Found {len(root)} potential roots. The tree at this stage should only have1."
+
+        centralRetinalVessels = list(self.successors(next(iter(self[root[0]]))))
+        print(root, centralRetinalVessels)
+
+        assert len(centralRetinalVessels)==2, f"Did not find two vessels sprouting from the root with index 0. This could mean that 0 is not the root or that there is more than the CRA and CRV linked to it. {centralRetinalVessels=}"
+        self.remove_nodes_from([root[0], next(iter(self[root[0]]))])
+        
+        centralRetinalVessels.sort(key=lambda n: self.nodes[n]['stage']) # CRA first (stage=-3) then CRV (stage=-2)
+        return tuple(centralRetinalVessels) 
+
+    @staticmethod
+    def CreateSubGraphFromRoot(G:nx.DiGraph,root:int,
+                               reverse=False)->nx.DiGraph:
+        '''
+        Returns a subgraph of G which is the graph sprouting from root.
+        That is, only the nodes and edges that are accessible from root.
+        If reverse is True, then the tree is traversed in the other order.
+        '''
+        nodes = nx.dfs_preorder_nodes(G, source=root) # All the nodes in the subgraph
+        return G.subgraph(nodes)        
+
+    #_CreateSubGraphFromRoot = CreateSubGraphFromRoot.__func__() # Call the staticmethod. Unnecessary in python>=3.10
+
+    def _SplitAVTree(self) -> None:
+        '''
+        Assuming the tree has the arteries and veins connected to 
+        an artificial root for the stage 1 of CCO, this functions
+        splits the graph and reorders the edges so that we get
+        a graph of artery and veins. 
+        At this points the two trees (arteries and veins) are 
+        disconnected. 
+        If the tree has already been split, print a warning and does nothing.
+        '''
+
+        if self._hasBeenSplit:
+            print("The tree has already been split.")
+            return
+
+        self._CRA, self._CRV = self._findCRA_CRV()
+
+        arterialTree = self.__class__.CreateSubGraphFromRoot(self, self._CRA)
+        nx.set_node_attributes(arterialTree, values='art', name='nodeType')
+        venousTree   = self.__class__.CreateSubGraphFromRoot(self, self._CRV)
+        nx.set_node_attributes(venousTree, values='vei', name='nodeType')
+
+        arterialNodes, arterialEdges = [n for n in arterialTree.nodes.data()], [e for e in arterialTree.edges.data()]
+        venousNodes, venousEdges = [n for n in venousTree.nodes.data()], [(v,u,d) for u,v,d in venousTree.edges.data()]
+        
+        print(f"Initial tree: {self.number_of_nodes()=} {self.number_of_edges()=}\n\t" +
+              f"Arterial tree: {arterialTree.number_of_nodes()=} {arterialTree.number_of_edges()=}\n\t"+
+              f"Arterial tree: {venousTree.number_of_nodes()=} {venousTree.number_of_edges()=}")
+        
+        self.clear() # Clear all edges and nodes
+        self.update(edges=arterialEdges+venousEdges, nodes=arterialNodes+venousNodes)
+        self._hasBeenSplit = True
+
+
+def MergeArteryVeinCCO(arteryFile:str,
+                       veinFile:str,
+                       outputFile:str=None) -> str:
+    '''
+    Merges the input artery and vein files (in .cco format) and
+    returns the name of the file of the combined tree.
+
+    ### Parameters
+    arteryFile: str
+        A .cco file.
+    veinFile: str
+        A .cco file.
+    outputFile: str
+        The name of the output file. If None, the input files are concatenated
+        to form the output. In either case, it is returned by the function.
+    '''
+
+    # Stores the files' information, line by line.
+    with open(arteryFile, 'r') as f:
+        arteries = f.readlines()
+    with open(veinFile, 'r') as f:
+        veins = f.readlines()
+
+    # Number of segments in each file
+    nArteries = int(arteries[4])
+    nVeins = int(veins[4])
+
+
+    # Find location of the CRA/CRV and create an artificial root to link them together for further CCO uses
+    rootVein = tuple(float(x) for x in veins[1].split(' ')[:3])
+    rootArtery = tuple(float(x) for x in arteries[1].split(' ')[:3])
+    rootCombined = tuple((a+v)/2. for a,v in zip(rootArtery[:-1], rootVein[:-1]))+(-0.2,)
+    # The combined tree's info (one line)
+    newTreeInfo = ("*Tree\n",)+tuple(str(x)+' ' for x in rootCombined) + tuple(str(float(a)+float(v))+' ' for a,v in zip(arteries[1].split(' ')[3:-1], veins[1].split(' ')[3:-1]))+("\n\n",)
+
+    ## We update the radius of the root to follow Murray's law (with exponent Gamma=3).
+    ## Otherwise, the CCO will update the radius of the vessels and they will end-up much larger (twice as big approx)
+    k = float(veins[1].split(' ')[-3])/float(arteries[1].split(' ')[-3]) # Ratio of radii
+    gamma = 3
+    newTreeInfo = list(newTreeInfo)
+    newTreeInfo[-3] = float(arteries[1].split(' ')[-3])*(1+k**gamma)**(1./gamma)
+    newTreeInfo = tuple(newTreeInfo)
+    
+    # The combined tree's vessels info (nArteries+nVeins+3 segments) 
+    newVesselsInfo = ("*Vessels\n" + str(nArteries+nVeins+3)+'\n',) + tuple(' '.join(a.split(' ')[:-1]+['-1\n']) for a in arteries[5:5+nArteries]) + tuple(' '.join((str(int(v.split(' ')[0])+nArteries), *v.split(' ')[1:-1], '-1\n'))  for v in veins[5:5+nVeins])
+
+    # Add the vessels linking the artificial root to the CRA and CRV
+    qCRA, qCRV = arteries[1].split(' ')[3], veins[1].split(' ')[3]
+    qProx = float(qCRA) + float(qCRV)
+    root = ' '.join((str(x) for x in [nArteries+nVeins, *rootCombined, *rootCombined[:-1], rootCombined[-1]+0.05, 0.0, 0.0, 0.0, qProx, 0, newTreeInfo[-3], newTreeInfo[3], 0.0, 0.0, 0.0, 1, 0.0, 0.0, -4])) + '\n'
+    rootToCRA = ' '.join((str(x) for x in [nArteries+nVeins+1, *rootCombined[:-1], rootCombined[-1]+0.05, *rootArtery[:3], *arteries[5].split(' ')[7:-1], -3]))
+    rootToCRV = ' '.join((str(x) for x in [nArteries+nVeins+2, *rootCombined[:-1], rootCombined[-1]+0.05, *rootVein[:3], *veins[5].split(' ')[7:-1], -2]))
+    newVesselsInfo += (root, rootToCRA,'\n', rootToCRV, '\n')
+
+    # The combined tree's connectivity information
+    connectivityArtery = arteries[-nArteries-1:]
+    CRAConnectivity = connectivityArtery[1].split(' ')
+    connectivityArtery[1] = f"{CRAConnectivity[0]} {nArteries+nVeins+1} {' '.join(CRAConnectivity[2:])}" # Update the CRA connectivity: it is no longer the tree's root
+
+    connectivityVein = list(' '.join(str(int(n) + nArteries) for n in v.split(' '))+'\n' for v in veins[-nVeins:])
+    CRVConnectivity = connectivityVein[0].split(' ')
+    connectivityVein[0] = f"{CRVConnectivity[0]} {nArteries+nVeins+2} {' '.join(CRVConnectivity[2:])}" # Update the CRV connectivity: it is no longer the tree's root
+
+    newConnectivityInfo = ('\n',) + tuple(connectivityArtery) + tuple(connectivityVein) + (f"{nArteries+nVeins} -1 {nArteries+nVeins+1} {nArteries+nVeins+2}\n", f"{nArteries+nVeins+1} {nArteries+nVeins} 0\n", f"{nArteries+nVeins+2} {nArteries+nVeins} {nArteries}\n")
+
+    if outputFile:
+        outputFilename = outputFile
+    else:
+        outputFilename = arteryFile[:-4] # Path+File without extension
+        outputFilename += "-" + veinFile.split('/')[-1]
+        
+    with open(outputFilename, 'w') as f:
+        f.write(''.join(str(x) for x in newTreeInfo+newVesselsInfo+newConnectivityInfo))
+
+    # print("Merged tree written in", outputFilename)
+    return outputFilename

@@ -1,7 +1,6 @@
 # VPRetina
-
 # Linux installation
-
+This code has been tested on Linux (Ubuntu 22.04) with Python 3.10.<br>
 Clone the repository:
 ```
    git clone https://github.com/remihndz/VPRetina.git
@@ -41,6 +40,21 @@ TODO:
 	- Make sure code is commented and as clean as possible
 	- Create the requirement.txt
 
+
+# Usage
+Virtual vasculatures can be generated using the [scripts](./scripts) provided.<br>
+Use `python3 RunSims.py` to create `n` vasculatures.<br>
+This will create several folders:
+     - Input parameters and hyperparameters are contained in `PopulationParameters.csv`. Each row corresponds to one simulation (i.e., one virtual retina) indexed by the column `sim`.
+  - [In SSM](./SSM/), you can find the graphs resulting from the Statistical Shape Model. There are *two* files for each virtual retina: `sim_{i}_artery.cco` and `sim_{i}_vein.cco`.
+  - [In Coarse](./Coarse/), you can find the graphs resulting from the first stage of CCO growth. There are *six* files for each virtual retina: `sim_{i}_{artery or vein}.cco` which contain the graphs resulting from the CCO, `sim_{i}_{artery or vein}.root` which is a copy of the file found in [SSM](SSM/) and `sim_{i}_{artery or vein}.conf` which contains the hyperparameters for this stage.
+  - [In Macula](./Macula/), you can find the results from the second stage of the CCO. The naming convention is the same as in `Coarse`. The `.root` files are copies of the files in `Coarse`.
+  - [In AVTrees](./AVTrees/), you can find the merged arteries-veins graph resulting from the second stage of CCO growth (following the same naming convention, i.e., `sim_{i}_AV.cco`).
+
+Use `python3 GlobalMetrics.py AVTrees/*_AV.cco` to compute the morphological metrics for a list of networks. The results can be found in `OCTAMetrics.csv`, where<br>
+
+Use `python3 haemodynamics.py /path/to/PopulationParameters.csv` to run haemodynamics simulations for all the simulations in `PopulationParameters.csv`.<br>
+There are also parallel versions of these scripts for faster execution.
 
 # Publications
 

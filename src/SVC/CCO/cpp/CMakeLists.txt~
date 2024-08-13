@@ -1,0 +1,55 @@
+cmake_minimum_required(VERSION 3.0)
+       
+## Necessary libraries and includes 
+set(VTK_8_1_libs vtkCommonCore-8.1 vtkCommonDataModel-8.1 vtkCommonExecutionModel-8.1 vtkFiltersModeling-8.1 vtkIOCore-8.1 vtkIOLegacy-8.1 vtkIOXML-8.1 vtkIOGeometry-8.1 vtkInfovisCore-8.1 vtkFiltersGeneral-8.1 vtkFiltersCore-8.1 vtkFiltersSources-8.1 vtkCommonTransforms-8.1 vtkIOXMLParser-8.1)
+
+project(svc)
+
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set (CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}"
+           CACHE PATH "default install path" FORCE)
+endif()
+
+find_path(VITA_INCLUDE_DIRS
+  NAMES "core/GeneratorData.h"
+  PATHS "${CMAKE_BINARY_DIR}/../../../VItA/vita_build/include"
+  PATH_SUFFIXES "vita_source"
+  )
+find_path(VITA_LIBRARY_DIRS
+  NAMES "libVItA.a" "libVItA.so"
+  PATHS "${CMAKE_BINARY_DIR}/../../../VItA/vita_build/lib"
+  )
+find_path(VTK_INCLUDE_DIRS vtkAbstractArray.h
+  PATHS "${CMAKE_BINARY_DIR}/../../../VItA/vita_build/include"
+  PATH_SUFFIXES "vtk-8.1"
+  )
+find_path(VTK_LIBRARY_DIRS libvtkCommonCore-8.1.so
+  PATHS "${CMAKE_BINARY_DIR}/../../../VItA/vita_build/lib"
+  )
+  
+link_directories(${VTK_LIBRARY_DIRS} ${VITA_LIBRARY_DIRS} .)
+
+find_package(SWIG REQUIRED)
+include(${SWIG_USE_FILE})
+
+find_package(PythonLibs 3 REQUIRED)
+
+# set(CMAKE_CXX_FLAGS "-lstdc++" "-O3" "-Wall" "-fpic")
+
+SET_SOURCE_FILES_PROPERTIES(svc.i PROPERTIES CPLUSPLUS ON)
+# SET_SOURCE_FILES_PROPERTIES(svc.i PROPERTIES SWIG_FLAGS "-includeall")
+set (UseSWIG_TARGET_NAME_PREFERENCE STANDARD)
+swig_add_library(svc
+	TYPE SHARED
+	LANGUAGE python
+	SOURCES svc.i svc.cpp svc.h)
+
+TARGET_LINK_LIBRARIES(svc ${PYTHON_LIBRARIES} ${VTK_8_1_libs} VItA)
+TARGET_INCLUDE_DIRECTORIES(svc
+  PRIVATE
+  ${PYTHON_INCLUDE_DIRS}
+  ${VTK_INCLUDE_DIRS}
+  ${VITA_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  )
+set_property(TARGET svc PROPERTY SWIG_USE_TARGET_INCLUDE_DIRECTORIES TRUE)
