@@ -36,21 +36,20 @@ struct Vertex{
     tt, proba; // Edge properties
 };
 
-//typedef vector<Vertex> Graph;
-struct Graph{
-  vector<Vertex> adjacencyMatrix;
-  size_t size(){return adjacencyMatrix.size();}
-};
+typedef vector<Vertex> Graph;
+// struct Graph{
+//   vector<Vertex> adjacencyMatrix;
+//   size_t size(){return adjacencyMatrix.size();}
+// };
 
 vector<size_t> getRoots(Graph &graph){
   vector<size_t> roots;
-  vector<Vertex> &adj = graph.adjacencyMatrix;
-  vector<bool> isRoot(adj.size(), true);
-  for (size_t u=0; u<adj.size(); u++){
-    for (auto v: adj[u].adj)
+  vector<bool> isRoot(graph.size(), true);
+  for (size_t u=0; u<graph.size(); u++){
+    for (auto v: graph[u].adj)
       isRoot[v] = false;
   }
-  for (size_t u=0; u<adj.size(); u++)
+  for (size_t u=0; u<graph.size(); u++)
     if (isRoot[u]){
       roots.push_back(u);
     }      
@@ -60,7 +59,7 @@ vector<size_t> getRoots(Graph &graph){
 vector<size_t> getLeaves(Graph &graph){
   vector<size_t> leaves;
   size_t u = 0; // u will be the vertex index in adjacency matrix
-  for (Vertex &v: graph.adjacencyMatrix){
+  for (Vertex &v: graph){
     if (v.adj.empty()) // No neighbors
       leaves.push_back(u); 
     u++;
@@ -70,13 +69,12 @@ vector<size_t> getLeaves(Graph &graph){
 
 void GetEdgeData(Graph &graph){
   // Compute the probability of RBC at node u going to node v, where v is a downstream neighbor of u.
-  vector<Vertex> &adj = graph.adjacencyMatrix;
-    
+  
   // Compute the probability of a RBC going from vertex u to v
   // and the transit time between u and v
   double totalRBC, rbc;
   int u=0;
-  for (Vertex &v: adj){ // Iterate through vertices v
+  for (Vertex &v: graph){ // Iterate through vertices v
     totalRBC = 0;
     u++;
     for (size_t k=0; k<v.adj.size(); k++){ // Iterate through neighbors number k
@@ -102,14 +100,13 @@ void GetEdgeData(Graph &graph){
 // //graph[i][j] stores the j-th neighbour of the node i
 pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff) 
 {
-  vector<Vertex> &adj = graph.adjacencyMatrix; // Graph adjacency matrix shortcut
   //initialize:
   pathAnalysis pathData;
   //remember the node (first) and the index of the next neighbour (second)
   typedef pair<size_t, size_t> State;
   stack<State> to_do_stack;
   deque<int> path(cutoff); //remembering the way
-  vector<bool> visited(adj.size(), false); //caching visited - no need for searching in the path-vector
+  vector<bool> visited(graph.size(), false); //caching visited - no need for searching in the path-vector
   deque<double> pathTransitTime(cutoff), pathProbability(cutoff); // Remembering the probability and transit time of the path. Use the same way as `path` but stores (cumulating) times/probabilities instead of nodes.
 
   // // Pre-allocate max size. Note: this keeps size() at 0.
@@ -129,7 +126,7 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
     {
       State &current = to_do_stack.top();//current stays on the stack for the time being...
       
-      if (current.first == end || current.second == adj[current.first].adj.size() || path.size()>=cutoff)//goal reached or done with neighbours?
+      if (current.first == end || current.second == graph[current.first].adj.size() || path.size()>=cutoff)//goal reached or done with neighbours?
 	{
           if (current.first == end)
 	    {
@@ -150,15 +147,15 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
           to_do_stack.pop();//no need to explore further neighbours   
 	}
       else{//normal case: explore neighbours
-	size_t next=adj[current.first].adj[current.second];
+	size_t next=graph[current.first].adj[current.second];
 	current.second++;//update the next neighbour in the stack!
 	if(!visited[next]){
 	  //putting the neighbour on the todo-list
 	  to_do_stack.push(make_pair(next, 0));
 	  visited[next]=true;
 	  path.push_back(next);
-	  pathTransitTime.push_back(adj[current.first].tt[current.second-1]);
-	  pathProbability.push_back(adj[current.first].proba[current.second-1]);
+	  pathTransitTime.push_back(graph[current.first].tt[current.second-1]);
+	  pathProbability.push_back(graph[current.first].proba[current.second-1]);
 	  // print(path);
 	}      
       }
@@ -185,7 +182,7 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
     }
   }
 
-  graph.adjacencyMatrix.reserve(nv); // Initialize with nv vertices
+  graph.reserve(nv); // Initialize with nv vertices
   
   // Make the map of nodes to integer
   delimiter = ",";
@@ -258,19 +255,19 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
     }
     
     if (f>=0){
-      graph.adjacencyMatrix[u].adj.push_back(v); // Add the edge
-      graph.adjacencyMatrix[u].ht.push_back(h);
-      graph.adjacencyMatrix[u].flow.push_back(f);
-      graph.adjacencyMatrix[u].rad.push_back(r);
-      graph.adjacencyMatrix[u].len.push_back(l);
+      graph[u].adj.push_back(v); // Add the edge
+      graph[u].ht.push_back(h);
+      graph[u].flow.push_back(f);
+      graph[u].rad.push_back(r);
+      graph[u].len.push_back(l);
       // cout << "Edge (" << u << "," << v << ") with flow " << flow[u].back() << " and ht " << ht[u].back() << endl;
     }
     else{ // Reverse the edge to follow flowx
-      graph.adjacencyMatrix[v].adj.push_back(u); 
-      graph.adjacencyMatrix[v].ht.push_back(h);
-      graph.adjacencyMatrix[v].flow.push_back(-1.0*f);
-      graph.adjacencyMatrix[v].rad.push_back(r);
-      graph.adjacencyMatrix[v].len.push_back(l);
+      graph[v].adj.push_back(u); 
+      graph[v].ht.push_back(h);
+      graph[v].flow.push_back(-1.0*f);
+      graph[v].rad.push_back(r);
+      graph[v].len.push_back(l);
       // cout << "Original edge was reversed to become (" << v << "," << u << ") with flow " << flow[v].back() << " and ht " << ht[v].back() << endl;
     }
   }
@@ -287,14 +284,14 @@ int main(void)
   // cout << "Got graph" << endl;
   // graphFile.close();
 
-  graph.adjacencyMatrix.resize(5);  
-  graph.adjacencyMatrix[0].adj.push_back(1);
-  graph.adjacencyMatrix[2].adj.push_back(1);
-  graph.adjacencyMatrix[1].adj.push_back(3);
-  graph.adjacencyMatrix[1].adj.push_back(4);
+  graph.resize(5);  
+  graph[0].adj.push_back(1);
+  graph[2].adj.push_back(1);
+  graph[1].adj.push_back(3);
+  graph[1].adj.push_back(4);
 
   int ne=0, nv=0;
-  for (Vertex& v: graph.adjacencyMatrix){
+  for (Vertex& v: graph){
     for (size_t k=0; k<v.adj.size(); k++){
       v.ht.push_back(0.45);
       v.flow.push_back(1.0);
