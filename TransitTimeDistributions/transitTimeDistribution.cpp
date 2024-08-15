@@ -28,6 +28,12 @@ void print(const vector<size_t> &path){
   cout << endl;
 };
 
+void print(const deque<size_t> &path){
+  for (auto i: path)
+    cout << i << "->";
+  cout <<endl;
+};
+
 enum State {Unvisited, Visited, Visiting};
 struct Vertex{
   vector<size_t> adj; // Nodes it is connected to
@@ -42,7 +48,7 @@ typedef vector<Vertex> Graph;
 //   size_t size(){return adjacencyMatrix.size();}
 // };
 
-vector<size_t> getRoots(Graph &graph){
+vector<size_t> getRoots(const Graph &graph){
   vector<size_t> roots;
   vector<bool> isRoot(graph.size(), true);
   for (size_t u=0; u<graph.size(); u++){
@@ -56,10 +62,10 @@ vector<size_t> getRoots(Graph &graph){
   return roots;
 }
 
-vector<size_t> getLeaves(Graph &graph){
+vector<size_t> getLeaves(const Graph &graph){
   vector<size_t> leaves;
   size_t u = 0; // u will be the vertex index in adjacency matrix
-  for (Vertex &v: graph){
+  for (const Vertex &v: graph){
     if (v.adj.empty()) // No neighbors
       leaves.push_back(u); 
     u++;
@@ -75,6 +81,8 @@ void GetEdgeData(Graph &graph){
   double totalRBC, rbc;
   int u=0;
   for (Vertex &v: graph){ // Iterate through vertices v
+    v.proba.resize(v.adj.size());
+    v.tt.resize(v.adj.size());
     totalRBC = 0;
     u++;
     for (size_t k=0; k<v.adj.size(); k++){ // Iterate through neighbors number k
@@ -105,7 +113,7 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
   //remember the node (first) and the index of the next neighbour (second)
   typedef pair<size_t, size_t> State;
   stack<State> to_do_stack;
-  deque<int> path(cutoff); //remembering the way
+  deque<size_t> path; //remembering the way
   vector<bool> visited(graph.size(), false); //caching visited - no need for searching in the path-vector
   deque<double> pathTransitTime(cutoff), pathProbability(cutoff); // Remembering the probability and transit time of the path. Use the same way as `path` but stores (cumulating) times/probabilities instead of nodes.
 
@@ -170,7 +178,7 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
   string line;
   size_t nv;
   string delimiter;
-  
+
   while (getline(graphFile, line)){
     if (line.find(string("# Nodes")) != string::npos){ // If found the '# Nodes: nNodes' line
       delimiter = ": ";
@@ -182,7 +190,7 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
     }
   }
 
-  graph.reserve(nv); // Initialize with nv vertices
+  graph.resize(nv); // Initialize with nv vertices
   
   // Make the map of nodes to integer
   delimiter = ",";
@@ -253,57 +261,57 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
       line.erase(0, line.find(delimiter)+delimiter.length());
       k++;
     }
-    
+
     if (f>=0){
       graph[u].adj.push_back(v); // Add the edge
-      graph[u].ht.push_back(h);
+      graph[u].ht.push_back(0.45);
       graph[u].flow.push_back(f);
       graph[u].rad.push_back(r);
       graph[u].len.push_back(l);
-      // cout << "Edge (" << u << "," << v << ") with flow " << flow[u].back() << " and ht " << ht[u].back() << endl;
+      // cout << "Edge (" << u << "," << v << ") with flow " << graph[u].flow.back() << " and ht " << graph[u].ht.back() << endl;
     }
     else{ // Reverse the edge to follow flowx
       graph[v].adj.push_back(u); 
-      graph[v].ht.push_back(h);
+      graph[v].ht.push_back(0.45);
       graph[v].flow.push_back(-1.0*f);
       graph[v].rad.push_back(r);
       graph[v].len.push_back(l);
-      // cout << "Original edge was reversed to become (" << v << "," << u << ") with flow " << flow[v].back() << " and ht " << ht[v].back() << endl;
+      // cout << "Original edge was reversed to become (" << v << "," << u << ") with flow " << graph[v].flow.back() << " and ht " << graph[v].ht.back() << endl;
     }
   }
-}
+};
 
 int main(void)
 {
 
   Graph graph;
 
-  // ifstream graphFile;
-  // graphFile.open("./sim_58_AV.graph"); //"./sim_0_AV.graph");
-  // ReadGraph(graphFile, graph);
-  // cout << "Got graph" << endl;
-  // graphFile.close();
+  ifstream graphFile;
+  graphFile.open("./sim_58_AV.graph"); //"./sim_0_AV.graph");
+  ReadGraph(graphFile, graph);
+  cout << "Got graph with nv="<<graph.size() << endl;
+  graphFile.close();
 
-  graph.resize(5);  
-  graph[0].adj.push_back(1);
-  graph[2].adj.push_back(1);
-  graph[1].adj.push_back(3);
-  graph[1].adj.push_back(4);
+  // graph.resize(5);  
+  // graph[0].adj.push_back(1);
+  // graph[2].adj.push_back(1);
+  // graph[1].adj.push_back(3);
+  // graph[1].adj.push_back(4);
 
-  int ne=0, nv=0;
-  for (Vertex& v: graph){
-    for (size_t k=0; k<v.adj.size(); k++){
-      v.ht.push_back(0.45);
-      v.flow.push_back(1.0);
-      v.rad.push_back(1.0);
-      v.len.push_back(1.0);
-      v.proba.push_back(1.0);
-      v.tt.push_back(1.0);
-      ne+=1;
-    }
-    nv++;
-  }
-      
+  // int ne=0, nv=0;
+  // for (Vertex& v: graph){
+  //   for (size_t k=0; k<v.adj.size(); k++){
+  //     v.ht.push_back(0.45);
+  //     v.flow.push_back(1.0);
+  //     v.rad.push_back(1.0);
+  //     v.len.push_back(1.0);
+  //     v.proba.push_back(1.0);
+  //     v.tt.push_back(1.0);
+  //     ne+=1;
+  //   }
+  //   nv++;
+  // }
+
   vector<size_t> roots = getRoots(graph),
     leaves = getLeaves(graph);
   
@@ -311,7 +319,7 @@ int main(void)
   print(leaves);
   GetEdgeData(graph);
   cout << "Got edge data" << endl;
-  auto pathsData = dfs(graph, roots[0], leaves[0], 300);
+  auto pathsData = dfs(graph, roots[0], leaves[leaves.size()-1], 300);
   cout << "Found " << pathsData.numberOfPaths() << " paths." << endl;
   
   // // vector<vector<size_t> > graph(5);
