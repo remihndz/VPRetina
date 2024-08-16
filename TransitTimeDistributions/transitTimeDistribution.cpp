@@ -346,11 +346,12 @@ int main(int argc, char *argv[])
     cout << "\rFound " << pathsData.numberOfPaths() << " paths." << endl;
 
     // // Write the graph data in binary (to save space, these arrays are pretty large)
-    // Not sure why but writing directly to binary rather than ASCII does not save space, on the contrary might take even more.
-    // This might save space if using floats?
     cout << flush;
     string fileName = argv[i];
 
+
+    // NOTE: This can be read using numpy.fromfile(fileName.pathdata.bin, dtype=numpy.float32)
+    // By default, numpy.fromfile looks for DOUBLE which causes undefined behaviour!!
     fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata.bin");
     fout.open(fileName);
     struct pathInfo{
@@ -358,6 +359,7 @@ int main(int argc, char *argv[])
     } p;
     BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
       if (!((std::isnan(tt)) || (std::isinf(tt)))){
+	cout << "As double:" << tt;
 	p.tt = tt;
 	p.pr = pr;
 	fout.write(reinterpret_cast<char *>(&p), sizeof(p));
@@ -365,18 +367,18 @@ int main(int argc, char *argv[])
     }
     fout.close();
 
-    // This writes as ascii (up to 6 significant digits?)
-    fileName = argv[i];
+    // // This writes as ascii (up to 6 significant digits?)
+    // fileName = argv[i];
 
-    fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata");
-    fout.open(fileName);
+    // fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata");
+    // fout.open(fileName);
     
-    BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
-      if (!((std::isnan(tt)) || (std::isinf(tt)))){
-	fout << tt << "," << pr << '\n';
-      }
-    }
-    fout.close();
+    // BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
+    //   if (!((std::isnan(tt)) || (std::isinf(tt)))){
+    // 	fout << tt << "," << pr << '\n';
+    //   }
+    // }
+    // fout.close();
   }  
   return 0;
 }
