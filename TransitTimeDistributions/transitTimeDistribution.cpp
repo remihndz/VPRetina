@@ -5,9 +5,13 @@
 #include <fstream>
 #include <map>
 #include <deque>
+#include <boost/lexical_cast.hpp>
+#include <boost/range/combine.hpp>
+#include <boost/foreach.hpp>
+#include <cmath> // For isnan function
 
 const double PI = 3.1415926535897932384626433832795028841971693993751058209;
-
+const size_t CUTOFF = 300;
 // TODO: give path vectors a fixed size (cutoff) and keep track of depth to save some time on checks from pop_back
 
 using namespace std;
@@ -42,20 +46,21 @@ struct Vertex{
     tt, proba; // Edge properties
 };
 
-typedef vector<Vertex> Graph;
-// struct Graph{
-//   vector<Vertex> adjacencyMatrix;
-//   size_t size(){return adjacencyMatrix.size();}
-// };
+// typedef vector<Vertex> Graph;
+struct Graph{
+  vector<Vertex> vertices;
+  size_t size(){return vertices.size();}
+  size_t CRA, CRV; 
+};
 
 vector<size_t> getRoots(const Graph &graph){
   vector<size_t> roots;
-  vector<bool> isRoot(graph.size(), true);
-  for (size_t u=0; u<graph.size(); u++){
-    for (auto v: graph[u].adj)
+  vector<bool> isRoot(graph.vertices.size(), true);
+  for (size_t u=0; u<graph.vertices.size(); u++){
+    for (size_t v: graph.vertices[u].adj)
       isRoot[v] = false;
   }
-  for (size_t u=0; u<graph.size(); u++)
+  for (size_t u=0; u<graph.vertices.size(); u++)
     if (isRoot[u]){
       roots.push_back(u);
     }      
@@ -65,7 +70,7 @@ vector<size_t> getRoots(const Graph &graph){
 vector<size_t> getLeaves(const Graph &graph){
   vector<size_t> leaves;
   size_t u = 0; // u will be the vertex index in adjacency matrix
-  for (const Vertex &v: graph){
+  for (const Vertex &v: graph.vertices){
     if (v.adj.empty()) // No neighbors
       leaves.push_back(u); 
     u++;
@@ -80,7 +85,7 @@ void GetEdgeData(Graph &graph){
   // and the transit time between u and v
   double totalRBC, rbc;
   int u=0;
-  for (Vertex &v: graph){ // Iterate through vertices v
+  for (Vertex &v: graph.vertices){ // Iterate through vertices v
     v.proba.resize(v.adj.size());
     v.tt.resize(v.adj.size());
     totalRBC = 0;
@@ -97,7 +102,7 @@ void GetEdgeData(Graph &graph){
 }
 
 // pathAnalysis BFS(Graph &graph, size_t start, size_t end, size_t cutoff){
-//   intMat &adj = graph.adjacencyMatrix; // Graph adjacency matrix
+//   intMat &adj = graph.vertices; // Graph adjacency matrix
 //   doubleMat &edgeProbabilities = graph.edgeProbabilities,
 //     &edgeTransitTimes = graph.edgeTransitTimes;
 //   //initialize:
@@ -130,11 +135,11 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
   pathProbability.push_back(1);
 
   size_t pathCount = 0, oneMil = static_cast<size_t>(1e6);
-  while(!to_do_stack.empty())
+  while (!to_do_stack.empty())
     {
       State &current = to_do_stack.top();//current stays on the stack for the time being...
       
-      if (current.first == end || current.second == graph[current.first].adj.size() || path.size()>=cutoff)//goal reached or done with neighbours?
+      if (current.first == end || current.second == graph.vertices[current.first].adj.size() || path.size()>cutoff)//goal reached or done with neighbours?
 	{
           if (current.first == end)
 	    {
@@ -155,19 +160,20 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
           to_do_stack.pop();//no need to explore further neighbours   
 	}
       else{//normal case: explore neighbours
-	size_t next=graph[current.first].adj[current.second];
+	size_t next=graph.vertices[current.first].adj[current.second];
 	current.second++;//update the next neighbour in the stack!
 	if(!visited[next]){
 	  //putting the neighbour on the todo-list
 	  to_do_stack.push(make_pair(next, 0));
 	  visited[next]=true;
 	  path.push_back(next);
-	  pathTransitTime.push_back(graph[current.first].tt[current.second-1]);
-	  pathProbability.push_back(graph[current.first].proba[current.second-1]);
+	  pathTransitTime.push_back(pathTransitTime.back()+graph.vertices[current.first].tt[current.second-1]);
+	  pathProbability.push_back(pathProbability.back()*graph.vertices[current.first].proba[current.second-1]);
 	  // print(path);
 	}      
       }
     }
+  cout << endl;
   return pathData;
 }
 
@@ -178,19 +184,33 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
   string line;
   size_t nv;
   string delimiter;
-
+  string sCRA, sCRV; // The node names as strings
+  
   while (getline(graphFile, line)){
-    if (line.find(string("# Nodes")) != string::npos){ // If found the '# Nodes: nNodes' line
+    // Be careful that the reader doesn't read another
+    // graph attribute that ends in "CRA:" or "CRV:"
+    // by keeping a blank space before, e.g., " CRA:"
+    if (line.find(string(" CRA:")) != string::npos){
+      delimiter = ": ";
+      line.erase(0, line.find(delimiter)+delimiter.length());
+      sCRA = line;
+    }
+    else if (line.find(string(" CRV:")) != string::npos){
+      delimiter = ": ";
+      line.erase(0, line.find(delimiter)+delimiter.length());
+      sCRV = line;
+    }
+    else if (line.find(string("# Nodes")) != string::npos){ // If found the '# Nodes: nNodes' line
       delimiter = ": ";
       line.erase(0, line.find(delimiter)+delimiter.length()); // Removes the '# Nodes: ' before the number of nodes
-      cout << "Number of vertices " << line << endl;
-      nv = stoi(line);
+      // cout << "Number of vertices " << line << endl;
+      nv = boost::lexical_cast<size_t>(line);
       getline(graphFile, line); // Header line we could sparse
       break;
     }
   }
 
-  graph.resize(nv); // Initialize with nv vertices
+  graph.vertices.resize(nv); // Initialize with nv vertices
   
   // Make the map of nodes to integer
   delimiter = ",";
@@ -199,7 +219,9 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
     string node = line.substr(0, line.find(delimiter)); // Node name
     nodesToInt[node] = i;    
   }
-
+  graph.CRA = nodesToInt[sCRA];
+  graph.CRV = nodesToInt[sCRV];
+  
   // Get the edges
   size_t ne;
   string edgeAttributeNames;
@@ -209,23 +231,36 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
       if (line.find(string("# Edges")) != string::npos){
         delimiter = ": ";
 	line.erase(0, line.find(delimiter)+delimiter.length()); // Removes the '# Edges: ' before the number of edges
-	cout << "Number of edges " << line << endl;
+	// cout << "Number of edges " << line << endl;
 	ne = stoi(line);      
 	getline(graphFile, edgeAttributeNames); // header line we could sparse
 	string edgeAttribute;
 	delimiter = ',';
+	edgeAttributeNames.append(delimiter);
 	int k =0;
 	while(edgeAttributeNames.find(delimiter) != string::npos){
 	  edgeAttribute = edgeAttributeNames.substr(0, edgeAttributeNames.find(delimiter));
+	  //cout << "Edge attribute: " << edgeAttribute << endl;
 	  edgeAttributeNames.erase(0, edgeAttributeNames.find(delimiter) + delimiter.length());
-	  if (edgeAttribute.compare("flow"))
-	    flowAttributePos = k;
-	  else if (edgeAttribute.compare("hd"))
-	    htAttributePos = k;
-	  else if (edgeAttribute.compare("radius"))
-	    radAttributePos = k;
-	  else if (edgeAttribute.compare("length"))
+	  if (edgeAttribute.compare("flow")==0)
+	    {
+	      //cout << "Found flow columns at " << k << endl;
+	      flowAttributePos = k;
+	    }
+	  else if (edgeAttribute.compare("hd")==0)
+	    {
+	      //cout << "Found ht columns at " << k << endl;
+	      htAttributePos = k;
+	    }
+	  else if (edgeAttribute.compare("radius")==0)	    
+	    {
+	      //cout << "Found radius columns at " << k << endl;
+	      radAttributePos = k;
+	    }
+	  else if (edgeAttribute.compare("length")==0){
+	    // cout << "Found length columns at " << k << endl;
 	    lenAttributePos = k;
+	  }
 	  k++;
 	}
 	break;
@@ -234,7 +269,7 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
 
   // Read edge data
   size_t u,v;
-  float f, h, r, l;
+  double f, h, r, l;
   delimiter = ',';
   string nodeName;
   for (int j=0; j<ne; j++){
@@ -247,106 +282,101 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
     line.erase(0, line.find(delimiter)+delimiter.length()); // Remove from string
     
     // Find the column that has flow value for the vessel
-    int k=1; // Starts at one because we remove two columns (u and v the node names)
+    int k=2; // Starts at one because we remove two columns (u and v the node names)
     line.append(delimiter); // In case flow or hematocrit is the last column
     while (line.find(delimiter) != string::npos){
       if (k==flowAttributePos)
-	  f = stof(line.substr(0, line.find(delimiter)));
-      else if (k==htAttributePos)       
-	  h = stof(line.substr(0, line.find(delimiter)));
-      else if (k==radAttributePos)       
-	  r = stof(line.substr(0, line.find(delimiter)));
-      else if (k==lenAttributePos)       
-	  l = stof(line.substr(0, line.find(delimiter)));
+	f = boost::lexical_cast<double>(line.substr(0, line.find(delimiter)));
+      else if (k==htAttributePos){
+	try {h = boost::lexical_cast<double>(line.substr(0, line.find(delimiter)));}
+	catch (...) {h = 0.45;}
+      }
+      else if (k==radAttributePos){
+	r = boost::lexical_cast<double>(line.substr(0, line.find(delimiter)));
+      }
+      else if (k==lenAttributePos){
+	try {	  
+	  l = boost::lexical_cast<double>(line.substr(0, line.find(delimiter)));}
+	catch (...) {l = 1e20;}
+      }
       line.erase(0, line.find(delimiter)+delimiter.length());
       k++;
     }
 
+    if ((u==graph.CRA || v==graph.CRV) && f<0)
+      cout << "CRA or CRV orientation is being switched!" << endl;
+    
     if (f>=0){
-      graph[u].adj.push_back(v); // Add the edge
-      graph[u].ht.push_back(0.45);
-      graph[u].flow.push_back(f);
-      graph[u].rad.push_back(r);
-      graph[u].len.push_back(l);
+      graph.vertices[u].adj.push_back(v); // Add the edge
+      graph.vertices[u].ht.push_back(0.45);
+      graph.vertices[u].flow.push_back(f);
+      graph.vertices[u].rad.push_back(r);
+      graph.vertices[u].len.push_back(l);
       // cout << "Edge (" << u << "," << v << ") with flow " << graph[u].flow.back() << " and ht " << graph[u].ht.back() << endl;
     }
     else{ // Reverse the edge to follow flowx
-      graph[v].adj.push_back(u); 
-      graph[v].ht.push_back(0.45);
-      graph[v].flow.push_back(-1.0*f);
-      graph[v].rad.push_back(r);
-      graph[v].len.push_back(l);
-      // cout << "Original edge was reversed to become (" << v << "," << u << ") with flow " << graph[v].flow.back() << " and ht " << graph[v].ht.back() << endl;
+      // graph.vertices[v].adj.push_back(u);
+      graph.vertices[u].adj.push_back(v); // Add the edge
+      graph.vertices[v].ht.push_back(0.45);
+      graph.vertices[v].flow.push_back(-1.0*f);
+      graph.vertices[v].rad.push_back(r);
+      graph.vertices[v].len.push_back(l);
+      // cout << "Original edge was reversed to become (" << v << "," << u << ") with flow " << graph.vertices[v].flow.back() << " and ht " << graph.vertices[v].ht.back() << endl;
     }
   }
 };
 
-int main(void)
+int main(int argc, char *argv[])
 {
-
-  Graph graph;
-
+  
+  ofstream fout;
   ifstream graphFile;
-  graphFile.open("./sim_58_AV.graph"); //"./sim_0_AV.graph");
-  ReadGraph(graphFile, graph);
-  cout << "Got graph with nv="<<graph.size() << endl;
-  graphFile.close();
+  double tt, pr;
+  for (int i=1; i<argc; i++){
 
-  // graph.resize(5);  
-  // graph[0].adj.push_back(1);
-  // graph[2].adj.push_back(1);
-  // graph[1].adj.push_back(3);
-  // graph[1].adj.push_back(4);
+    cout << "Analysing " << argv[i] << " ... " << endl;
+    Graph graph;
+    graphFile.open(argv[i]);
 
-  // int ne=0, nv=0;
-  // for (Vertex& v: graph){
-  //   for (size_t k=0; k<v.adj.size(); k++){
-  //     v.ht.push_back(0.45);
-  //     v.flow.push_back(1.0);
-  //     v.rad.push_back(1.0);
-  //     v.len.push_back(1.0);
-  //     v.proba.push_back(1.0);
-  //     v.tt.push_back(1.0);
-  //     ne+=1;
-  //   }
-  //   nv++;
-  // }
+    ReadGraph(graphFile, graph);
+    graphFile.close();
+	    
+    GetEdgeData(graph);         
+    auto pathsData = dfs(graph, graph.CRA, graph.CRV, CUTOFF);
+    cout << "\rFound " << pathsData.numberOfPaths() << " paths." << endl;
 
-  vector<size_t> roots = getRoots(graph),
-    leaves = getLeaves(graph);
-  
-  print(roots);
-  print(leaves);
-  GetEdgeData(graph);
-  cout << "Got edge data" << endl;
-  auto pathsData = dfs(graph, roots[0], leaves[leaves.size()-1], 300);
-  cout << "Found " << pathsData.numberOfPaths() << " paths." << endl;
-  
-  // // vector<vector<size_t> > graph(5);
+    // // Write the graph data in binary (to save space, these arrays are pretty large)
+    // Not sure why but writing directly to binary rather than ASCII does not save space, on the contrary might take even more.
+    // This might save space if using floats?
+    cout << flush;
+    string fileName = argv[i];
 
-  // // graph[0].push_back(1);
-  // // graph[2].push_back(1);
-  // // graph[1].push_back(3);
-  // // graph[1].push_back(4);
+    fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata.bin");
+    fout.open(fileName);
+    struct pathInfo{
+      float tt, pr;
+    } p;
+    BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
+      if (!((std::isnan(tt)) || (std::isinf(tt)))){
+	p.tt = tt;
+	p.pr = pr;
+	fout.write(reinterpret_cast<char *>(&p), sizeof(p));
+      }
+    }
+    fout.close();
 
-  // vector<vector<size_t>> graph(4);
-  // for (int i=0; i<graph.size(); i++){
-  //   for (int j=0; j<graph.size(); j++)
-  //     if (i!=j)
-  // 	graph[i].push_back(j);
-  // }
-  
-  // vector<vector<double>> edgeProbas(graph.size());
-  // for (int i=0; i<graph.size(); i++){
-  //   for (int j=0; j<graph[i].size(); j++)
-  //     edgeProbas[i].push_back(1.0);
-  // }
-  
-  // auto pathData = dfs(fgraph, 0, 2, edgeProbas, edgeProbas, 10);
+    // This writes as ascii (up to 6 significant digits?)
+    fileName = argv[i];
 
-  // vector<size_t> roots = {0}, leaves = {3,2};
-  // for (auto root: roots)
-  //   for (auto leaf: leaves)
-  //     dfs(graph, root, leaf, edgeProbas, edgeProbas, 10);
+    fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata");
+    fout.open(fileName);
+    
+    BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
+      if (!((std::isnan(tt)) || (std::isinf(tt)))){
+	fout << tt << "," << pr << '\n';
+      }
+    }
+    fout.close();
+  }  
   return 0;
 }
