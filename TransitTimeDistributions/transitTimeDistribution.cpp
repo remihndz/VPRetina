@@ -358,7 +358,6 @@ int main(int argc, char *argv[])
     } p;
     BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
       if (!((std::isnan(tt)) || (std::isinf(tt)))){
-	cout << "As double:" << tt;
 	p.tt = tt;
 	p.pr = pr;
 	fout.write(reinterpret_cast<char *>(&p), sizeof(p));
