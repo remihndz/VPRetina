@@ -343,7 +343,6 @@ int main(int argc, char *argv[])
 	    
     GetEdgeData(graph);         
     auto pathsData = dfs(graph, graph.CRA, graph.CRV, CUTOFF);
-    cout << "\rFound " << pathsData.numberOfPaths() << " paths." << endl;
 
     // // Write the graph data in binary (to save space, these arrays are pretty large)
     cout << flush;
