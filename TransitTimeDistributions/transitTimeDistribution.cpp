@@ -24,7 +24,7 @@ typedef vector<vector<size_t>> intMat;
 struct pathAnalysis {
   vector<double> pathsTransitTimes;
   vector<double> pathsProbabilities;
-  
+  vector<size_t> pathsLength;
   size_t numberOfPaths(){return pathsTransitTimes.size();}
 };
 
@@ -148,6 +148,7 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
 	      pathCount+=1;
 	      pathData.pathsProbabilities.push_back(pathProbability.back());
 	      pathData.pathsTransitTimes.push_back(pathTransitTime.back());
+	      pathData.pathsLength.push_back(path.size());
 	      if (pathCount % oneMil == 0){
 		cout << "\rNumber of paths found (in millions): " << pathCount / oneMil << flush;
 	      }
@@ -362,28 +363,30 @@ int main(int argc, char *argv[])
     fout.open(fileName);
     struct pathInfo{
       float tt, pr;
+      size_t len;
     } p;
-    BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
-      if (!((std::isnan(tt)) || (std::isinf(tt)))){
-	p.tt = tt;
-	p.pr = pr;
+    BOOST_FOREACH(boost::tie(tt, pr, len), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities, pathsData.pathsLength)){
+      if (!((std::isnan(tt)) || (std::isinf(tt)) || (std::isnan(pr)) || (std::isinf(pr)))){
+	p.tt  = tt;
+	p.pr  = pr;
+	p.len = len;
 	fout.write(reinterpret_cast<char *>(&p), sizeof(p));
       }
     }
     fout.close();
 
-    // This writes as ascii (up to 6 significant digits?)
-    fileName = graphFileName;
+    // // This writes as ascii (up to 6 significant digits?)
+    // fileName = graphFileName;
 
-    fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata");
-    fout.open(fileName);
+    // fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata");
+    // fout.open(fileName);
     
-    BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
-      if (!((std::isnan(tt)) || (std::isinf(tt)))){
-	fout << tt << "," << pr << '\n';
-      }
-    }
-    fout.close();
+    // BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
+    //   if (!((std::isnan(tt)) || (std::isinf(tt)))){
+    // 	fout << tt << "," << pr << '\n';
+    //   }
+    // }
+    // fout.close();
   }  
   return 0;
 }
