@@ -339,7 +339,7 @@ int main(int argc, char *argv[])
   
   ofstream fout;
   ifstream graphFile;
-  double tt, pr;
+  double tt, pr, len;
   for (auto graphFileName: graphFiles){
 
     cout << "Analysing " << graphFileName << " ... " << endl;
@@ -362,8 +362,7 @@ int main(int argc, char *argv[])
     fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata.bin"); // Replace .graph with .pathdata.bin
     fout.open(fileName);
     struct pathInfo{
-      float tt, pr;
-      size_t len;
+      float tt, pr, len;
     } p;
     BOOST_FOREACH(boost::tie(tt, pr, len), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities, pathsData.pathsLength)){
       if (!((std::isnan(tt)) || (std::isinf(tt)) || (std::isnan(pr)) || (std::isinf(pr)))){
