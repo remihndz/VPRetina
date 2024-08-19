@@ -9,12 +9,14 @@
 #include <boost/range/combine.hpp>
 #include <boost/foreach.hpp>
 #include <cmath> // For isnan function
+#include <boost/program_options.hpp> // Argument parsing
+
+#include "argumentParser.hpp"
 
 const double PI = 3.1415926535897932384626433832795028841971693993751058209;
-const size_t CUTOFF = 300;
-// TODO: give path vectors a fixed size (cutoff) and keep track of depth to save some time on checks from pop_back
 
 using namespace std;
+namespace po = boost::program_options;
 
 typedef vector<vector<double>> doubleMat;
 typedef vector<vector<size_t>> intMat;
@@ -189,7 +191,8 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
   while (getline(graphFile, line)){
     // Be careful that the reader doesn't read another
     // graph attribute that ends in "CRA:" or "CRV:"
-    // by keeping a blank space before, e.g., " CRA:"
+    // by keeping a blank space before the string
+    // to compare 'line' to, e.g., " CRA:"
     if (line.find(string(" CRA:")) != string::npos){
       delimiter = ": ";
       line.erase(0, line.find(delimiter)+delimiter.length());
@@ -329,29 +332,33 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
 int main(int argc, char *argv[])
 {
   
+  size_t cutoff;
+  std::vector<std::string> graphFiles;
+  commandLineParser(argc, argv, cutoff, graphFiles);
+  
   ofstream fout;
   ifstream graphFile;
   double tt, pr;
-  for (int i=1; i<argc; i++){
+  for (auto graphFileName: graphFiles){
 
-    cout << "Analysing " << argv[i] << " ... " << endl;
+    cout << "Analysing " << graphFileName << " ... " << endl;
     Graph graph;
-    graphFile.open(argv[i]);
+    graphFile.open(graphFileName);
 
     ReadGraph(graphFile, graph);
     graphFile.close();
 	    
     GetEdgeData(graph);         
-    auto pathsData = dfs(graph, graph.CRA, graph.CRV, CUTOFF);
+    auto pathsData = dfs(graph, graph.CRA, graph.CRV, cutoff);
 
     // // Write the graph data in binary (to save space, these arrays are pretty large)
     cout << flush;
-    string fileName = argv[i];
+    string fileName = graphFileName;
 
 
     // NOTE: This can be read using numpy.fromfile(fileName.pathdata.bin, dtype=numpy.float32)
     // By default, numpy.fromfile looks for DOUBLE which causes undefined behaviour!!
-    fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata.bin");
+    fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata.bin"); // Replace .graph with .pathdata.bin
     fout.open(fileName);
     struct pathInfo{
       float tt, pr;
@@ -365,18 +372,18 @@ int main(int argc, char *argv[])
     }
     fout.close();
 
-    // // This writes as ascii (up to 6 significant digits?)
-    // fileName = argv[i];
+    // This writes as ascii (up to 6 significant digits?)
+    fileName = graphFileName;
 
-    // fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata");
-    // fout.open(fileName);
+    fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata");
+    fout.open(fileName);
     
-    // BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
-    //   if (!((std::isnan(tt)) || (std::isinf(tt)))){
-    // 	fout << tt << "," << pr << '\n';
-    //   }
-    // }
-    // fout.close();
+    BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
+      if (!((std::isnan(tt)) || (std::isinf(tt)))){
+	fout << tt << "," << pr << '\n';
+      }
+    }
+    fout.close();
   }  
   return 0;
 }
