@@ -1,7 +1,10 @@
 ## Project specific files
 **/vita_build/*
 build/*
-
+src/SVC/CCO/cpp/CMakeFiles
+Makefile
+cmake*
+CMakeCache.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
