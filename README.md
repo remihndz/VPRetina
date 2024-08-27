@@ -31,6 +31,8 @@ ccmake ../
 In the ccmake interface, press "c" to configure, make sure is set to current directory (vita_build) by setting "CMAKE_INSTALL_PREFIX = .", press "c" again, then "g" to generate makefiles. Then type:
 ```
 make
+mv svc.py ../../
+mv _svc.so ../../
 ```
 
 ## Python virtual environment
