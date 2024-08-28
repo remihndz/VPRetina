@@ -304,7 +304,6 @@ def CreatePNG(G:VirtualRetinalVasculature, plexus:int=0, FOV:float=0.3,
                    and np.linalg.norm(G.nodes[n2]['position'],np.inf)<fov2 # Node in roi
                    ]
         
-
     #print(f"Kept {len(vessels)}/{G.number_of_edges()} SVP vessels in the FOV.")
 
     plt.style.use("dark_background")

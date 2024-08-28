@@ -11,9 +11,11 @@ from tqdm.auto import tqdm
 outputGraphsDir = Path("/home/remi/VPRetina/TransitTimeDistributions/GraphsWithFlow/")
 outputGraphsDir.mkdir(exist_ok=True)
 
-inputGraphsDir = Path('/media/Storage3.6TB/DataForIOVSPaper/200Sims/OCTAMetrics')
-populationParameters = pd.read_csv('/media/Storage3.6TB/DataForIOVSPaper/200Sims/PopulationParameters.csv', index_col=0,
-                                   usecols=["Unnamed: 0","rCRA", "vCRA"])
+inputGraphsDir = Path('/media/Storage3.6TB/VariedPopulationOfRetinas/OCTAMetrics' )
+populationParameters = pd.concat((
+    pd.read_csv('/media/Storage3.6TB/VariedPopulationOfRetinas/PopulationParameters.csv', index_col=0,
+                usecols=["Unnamed: 0","rCRA", "vCRA"]),
+    pd.read_csv('/media/Storage3.6TB/VariedPopulationOfRetinas/outputs.csv', index_col=0)), axis=1)
 
 def ComputeFlow(G, qIn):
     '''
@@ -60,7 +62,7 @@ for graphFile in tqdm(graphFiles):
     simIndex = int(graphFile.name.split("_")[1]) # Simulation number
     G = VirtualRetinalVasculature()
     G.Read(graphFile)
-    rCRA, vCRA = populationParameters.loc[simIndex]
-    qIn = np.pi*rCRA*rCRA*vCRA # Doesn't really matter because we are normalizing flow to qIn when saving
-    ComputeFlow(G, qIn)        
-    
+    # rCRA, vCRA = populationParameters.loc[simIndex]
+    # qIn = np.pi*rCRA*rCRA*vCRA
+    qIn = populationParameters.loc[simIndex, 'TRBF']
+    ComputeFlow(G, qIn)            

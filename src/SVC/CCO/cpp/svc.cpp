@@ -78,8 +78,8 @@ std::string SVC_coarse(const std::string configFilename, bool verbose, int nThre
     {
       omp_set_dynamic(0);
       omp_set_num_threads(5);
-      cout << omp_get_num_threads() << " threads running with ";
-      cout << omp_get_max_threads() << " threads available." << endl; 
+      // cout << omp_get_num_threads() << " threads running with ";
+      // cout << omp_get_max_threads() << " threads available." << endl; 
     } 
   
   std::streambuf* cout_sbuf = std::cout.rdbuf(); // save original sbuf

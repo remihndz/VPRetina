@@ -1,4 +1,0 @@
-/media/Storage3.6TB/CodeArchives/VPRetina/src/SVC/CCO/cpp/CMakeFiles/svc.dir
-/media/Storage3.6TB/CodeArchives/VPRetina/src/SVC/CCO/cpp/CMakeFiles/svc_swig_compilation.dir
-/media/Storage3.6TB/CodeArchives/VPRetina/src/SVC/CCO/cpp/CMakeFiles/edit_cache.dir
-/media/Storage3.6TB/CodeArchives/VPRetina/src/SVC/CCO/cpp/CMakeFiles/rebuild_cache.dir
