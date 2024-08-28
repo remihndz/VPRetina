@@ -1,10 +1,12 @@
 import sys, os
+sys.path.append("../")
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import vp_utils as vp
 import networkx as nx
 from tqdm import tqdm
-from parallelbar import progress_map
 
 import metrics
 import multiprocessing
@@ -16,13 +18,15 @@ import traceback
 edgeData = ['radius', 'length', 'viscosity', 'hd', 'flow', 'pressure drop']
 dirname = os.path.dirname(os.path.realpath(sys.argv[1]))
 
-csvOutFileFolder = os.path.join(dirname, "Haemodynamics-120OPP-1e6R/")
+csvOutFileFolder = os.path.join(dirname, "Haemodynamics/", "Haemodynamics-100OPP-1e6R/")
+graphOutFolder = Path('/home/remi/VPRetina/TransitTimeDistributions/GraphsWithFlow/')
+Path(csvOutFileFolder).mkdir(exist_ok=True, parents=True)
 RDummy = 1e6
-OPPFolds = 1.2
+OPPFolds = 1.
 
-nPointsSVC=5500
-nPointsICP=8000
-nPointsDCP=7000
+# nPointsSVC=5500
+# nPointsICP=8000
+# nPointsDCP=7000
 
 print_lock = Lock()
 
@@ -46,7 +50,8 @@ def func(iterrow):
     MAP, IOP = row['MAP'], row['IOP']
     QCRA = row['vCRA']*np.pi*(row['rCRA']**2)
     pCRA = 2*MAP/3
-    pCRV = IOP # row['CRVP']    
+    pCRV = row['pCRV']
+    nPointsSVC, nPointsICP, nPointsDCP = row[['nPointsSVC', 'nPointsICP', 'nPointsDCP']]
 
     if os.path.isfile(os.path.join(csvOutFileFolder, os.path.basename(row['AVTreeFileName'])[:-4]+'.graph')): 
         G = vp.VirtualRetinalVasculature()
@@ -67,16 +72,20 @@ def func(iterrow):
                                                  nPointsICP=nPointsICP,
                                                  nPointsDCP=nPointsDCP,
                                                  )
-
+                
         except FileNotFoundError:
             print("Did not find file:", row['AVTreeFileName'])
             return 9*[None]
 
     G._RDummy = RDummy
+    G.pCRA = pCRA
+    G.pCRV = pCRV
 
     with HiddenPrints():
-        G.ComputeFlow({'pressure':pCRA}, {'pressure':pCRV})
-    G.Write(os.path.join(csvOutFileFolder, os.path.basename(row['AVTreeFileName'])[:-4]+'.graph'))
+        G.ComputeFlow()#{'pressure':pCRA}, {'pressure':pCRV})
+    #G.Write(os.path.join(csvOutFileFolder, os.path.basename(row['AVTreeFileName'])[:-4]+'.graph'))
+    graphFile = graphOutFolder / Path(row['AVTreeFileName']).name.replace('.cco', '.graph')
+    G.Write(graphFile)
 
     fileName = os.path.join(csvOutFileFolder , row['SVCFileName'].split('/')[-1] + f"_{G.MaculaFlow()*100:.0f}.csv")
 
@@ -131,7 +140,7 @@ if __name__=='__main__':
     os.system("mkdir -p " + csvOutFileFolder)
     population = pd.read_csv(sys.argv[1])
     population['pCRA'] *= OPPFolds
-    population['IOP'] *= OPPFolds
+    population['pCRV'] *= OPPFolds
 
     population.to_csv(os.path.join(csvOutFileFolder, "PopulationParameters.csv"))
 

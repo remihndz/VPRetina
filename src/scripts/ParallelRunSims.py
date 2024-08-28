@@ -1,7 +1,17 @@
+import sys
+sys.path.append("/home/remi/VPRetina/src/")
+sys.path.append("/home/remi/VPRetina/src/SVC/CCO")
+sys.path.append("/home/remi/VPRetina/src/SVC/SSM")
+sys.path.append("/home/remi/VPRetina/src/SVC/CCO")
+
 import vp_utils as vp
-from SVC.CCO.cpp import svc
-from SVC.CCO import cco_utils
-from SVC.SSM import ssm_utils
+import ssm_utils
+import cco_utils
+import svc 
+
+# from SVC.CCO.cpp import svc
+# from SVC.CCO import cco_utils
+# from SVC.SSM import ssm_utils
 import matplotlib.pyplot as plt
 import numpy as np
 import time
@@ -11,6 +21,7 @@ import pandas as pd
 from tqdm import tqdm
 from SALib.sample import sobol
 import seaborn as sns
+from pathlib import Path
 
 import metrics
 import multiprocessing
@@ -21,16 +32,15 @@ from multiprocessing import get_context
 
 verbose = False
 FOV = 0.3
-resultsFolder = os.path.abspath(f"../../Results/DataForPaper/FewerTermsInStage1/")
+resultsFolder = os.path.abspath('/media/Storage3.6TB/VariedPopulationOfRetinas')
 
 
 def _func(params):
     return params['sim'],0,1,2,3,4,5,6
 
+def computeMetrics(params, returnG:bool=False):
 
-def computeMetrics(iterrow, returnG:bool=False):
-
-    i, params = iterrow
+    #i, params = iterrow
     
     if 0==1 and os.path.isfile(os.path.join(resultsFolder, 'OCTAMetrics', params['AVTreeFileName'].split('/')[-1][:-4]+'.graph')): 
         G = vp.VirtualRetinalVasculature()
@@ -41,9 +51,9 @@ def computeMetrics(iterrow, returnG:bool=False):
         try:
             with metrics.HiddenPrints():
                 G = vp.VirtualRetinalVasculature(os.path.join(resultsFolder, 'OCTAMetrics', params['AVTreeFileName']),
-                                                 nPointsSVC=nPointsSVC,
-                                                 nPointsICP=nPointsICP,
-                                                 nPointsDCP=nPointsDCP,
+                                                 nPointsSVC=params['nPointsSVC'],
+                                                 nPointsICP=params['nPointsICP'],
+                                                 nPointsDCP=params['nPointsDCP'],
                                                  ROI = FOV*1.5
                                                  )
                 
@@ -135,63 +145,67 @@ def Func(params):
                                               veinFile=params['SVCFileName']+'_vein.cco',
                                               outputFile=params['AVTreeFileName'])
     
-    # with metrics.HiddenPrints():
+    with metrics.HiddenPrints():
 
-        # G = vp.VirtualRetinalVasculature(params['AVTreeFileName'],
-        #                                  nPointsSVC=params['nPointsSVC'],
-        #                                  nPointsICP=params['nPointsICP'], nPointsDCP=params['nPointsDCP'])
-        # G._RDummy = 1e6
+        G = vp.VirtualRetinalVasculature(params['AVTreeFileName'],
+                                         nPointsSVC=params['nPointsSVC'],
+                                         nPointsICP=params['nPointsICP'],
+                                         nPointsDCP=params['nPointsDCP'],
+                                         pCRA=params['pCRA'],
+                                         pCRV=params['pCRV'],
+                                         )
+        G._RDummy = 1e6
 
-        # FD = metrics.FractalDimension(G,FOV, imageFile=os.path.join(resultsFolder, "Images", G.ccoFile[:-4]+"_SVP.png"))
-        # IVD = metrics.InterVesselDistance(G,FOV=FOV, imageFile=os.path.join(resultsFolder, "Images", G.ccoFile[:-4]+"_SVP.png"))
-        # vessels, _ = metrics.SVPVessels(G, FOV=FOV)
-        # vesselDensity = metrics.VesselAreaDensity(vessels, FOV)
-        # VAD = metrics.VesselAreaDensity(vessels, FOV)
-        # VPI = metrics.VesselPerimeterIndex(vessels, FOV)
-        # VDI = metrics.VesselDiameterIndex(vessels, FOV)
-        # VCI = metrics.VesselComplexityIndex(vessels, FOV)
-        # VSD = metrics.VesselSkeletonDensity(vessels, FOV)
+        FD = metrics.FractalDimension(G,FOV, imageFile=os.path.join(resultsFolder, "Images", G.ccoFile[:-4]+"_SVP.png"))
+        IVD = metrics.InterVesselDistance(G,FOV=FOV, imageFile=os.path.join(resultsFolder, "Images", G.ccoFile[:-4]+"_SVP.png"))
+        vessels, _ = metrics.SVPVessels(G, FOV=FOV)
+        vesselDensity = metrics.VesselAreaDensity(vessels, FOV)
+        VAD = metrics.VesselAreaDensity(vessels, FOV)
+        VPI = metrics.VesselPerimeterIndex(vessels, FOV)
+        VDI = metrics.VesselDiameterIndex(vessels, FOV)
+        VCI = metrics.VesselComplexityIndex(vessels, FOV)
+        VSD = metrics.VesselSkeletonDensity(vessels, FOV)
 
-        # vesselsICP, _ = metrics.ICPVessels(G, FOV=FOV)
-        # vesselsDCP, _ = metrics.DCPVessels(G, FOV=FOV)
-        # vesselsICP_DCP, _ = metrics.DVCVessels(G, FOV=FOV)
+        vesselsICP, _ = metrics.ICPVessels(G, FOV=FOV)
+        vesselsDCP, _ = metrics.DCPVessels(G, FOV=FOV)
+        vesselsICP_DCP, _ = metrics.DVCVessels(G, FOV=FOV)
 
-        # VAD_ICP_DCP = metrics.VesselAreaDensity(vesselsICP_DCP, FOV)
-        # VAD_DCP = metrics.VesselAreaDensity(vesselsDCP, FOV)
-        # VAD_ICP = metrics.VesselAreaDensity(vesselsICP, FOV)
-        # FD_DCP  = metrics.FractalDimension(G, FOV, plexus=2, imageFile=os.path.join(resultsFolder, "Images", G.ccoFile[:-4]+"_DCP.png"))
+        VAD_ICP_DCP = metrics.VesselAreaDensity(vesselsICP_DCP, FOV)
+        VAD_DCP = metrics.VesselAreaDensity(vesselsDCP, FOV)
+        VAD_ICP = metrics.VesselAreaDensity(vesselsICP, FOV)
+        FD_DCP  = metrics.FractalDimension(G, FOV, plexus=2, imageFile=os.path.join(resultsFolder, "Images", G.ccoFile[:-4]+"_DCP.png"))
 
-        # G, VAD, VPI, VDI, VCI, VSD, FD, IVD, VAD_ICP_DCP, VAD_ICP, VAD_DCP, FD_DVC, IVD_DVC, rFAZ = computeMetrics(params, returnG=True)
-        # G._RDummy = 1e6
+        G, VAD, VPI, VDI, VCI, VSD, FD, IVD, VAD_ICP_DCP, VAD_ICP, VAD_DCP, FD_DVC, IVD_DVC, rFAZ = computeMetrics(params, returnG=True)
+        G._RDummy = 1e6
         
-        # G.ComputeFlow({'pressure':params['pCRA']}, {'pressure':params['CRVP']})
-        # TRBF = G.TRBF()
-        # MaculaFlow = G.MaculaFlow()
-        # del G
+        G.ComputeFlow()#{'pressure':params['pCRA']}, {'pressure':params['pCRV']})
+        TRBF = G.TRBF()
+        MaculaFlow = G.MaculaFlow()
+        del G
         
-    # return (params['sim'], FD, IVD,
-    #         VAD, VPI, VDI, VCI, VSD,
-    #         VAD_ICP_DCP,VAD_ICP,
-    #         VAD_DCP,FD_DVC,
-    #         TRBF,MaculaFlow)
-    return (params['sim'], *13*[0])
+    return (params['sim'], FD, IVD,
+            VAD, VPI, VDI, VCI, VSD,
+            VAD_ICP_DCP,VAD_ICP,
+            VAD_DCP,FD_DVC,
+            TRBF,MaculaFlow)
+    # return (params['sim'], *13*[0])
 
 if __name__=='__main__':
 
     # Run in multiprocessing
-    num_processes = multiprocessing.cpu_count()//int(os.environ['OMP_NUM_THREADS'])  # Adjust as needed
+    num_processes = multiprocessing.cpu_count()//int(os.getenv('OMP_NUM_THREADS', 4))  # Adjust as needed
 
-    BaselineParameters = {'rCRA':163/2.0, 'vCRA':6.3, 'MAP':84, 'IOP':14.7, 'CRVP':15, 'capPressure':23,
+    BaselineParameters = {'rCRA':163/2.0, 'vCRA':6.3, 'MAP':84, 'IOP':14.7, 'pCRV':15, 'capPressure':23,
                           'nTerm':20, # Unused
                           'i':0}
 
-    baseTerm = [200,20,20]
+    baseTerm = [200,150,75]
     capPressure=35
 
     times = []
     nTerms = []
 
-    n = 200
+    n = 500
 
     os.system("mkdir -p " + os.path.join(resultsFolder, "SSM"))
     os.system("mkdir -p " + os.path.join(resultsFolder, "Coarse"))
@@ -207,32 +221,39 @@ if __name__=='__main__':
 
     # headers = ["rCRA","vCRA", "nTerm", "nTerm0", "nTerm1", "SVCFileName"]
 
-    # problem = {
-    #     'num_vars':10,
-    #     'names':["lLimFr", "delta", "eta", "gamma", "perfAreaFr", "thetaMin", "closeNeighFr", "nTerm0", "nTerm1", "nPointsSVC"],
-    #     'bounds':[[0.1, 0.9],
-    #               [0.1, 0.9],
-    #               [0.2, 0.5],
-    #               [2., 3.0],
-    #               [0.1, 0.9],
-    #               [0.0, 0.4],
-    #               [0.0, 5.0],
-    #               [300, 500],
-    #               [200,400],
-    #               [300,700]]
-    # }
-
-    # params_value = sobol.sample(problem, 2**9)
-    # print(params_value.shape[0], "simulations running for an estimated", int(params_value.shape[0]*300/60/60/24/4), "days")
+    problem = {
+        'num_vars':12,
+        'names':["lLimFr", "delta", "eta", "gamma", "perfAreaFr", "thetaMin", "closeNeighFr",
+                 "nTerm0", "nTerm1", 
+                 "nPointsSVC", "nPointsICP", "nPointsDCP"],
+        'bounds':[[0.1, 0.9],
+                  [0.1, 0.9],
+                  [0.2, 0.5],
+                  [2., 3.0],
+                  [0.1, 0.9],
+                  [0.0, 0.4],
+                  [0.0, 5.0],
+                  [150*.8, 150*1.2], # nTerm0
+                  [75*.8, 75*1.2], # nTerm1
+                  [5500*.8, 5500*1.2], # nPointsSVC
+                  [16000*.8, 16000*1.2], # nPointsICP
+                  [10500*.8, 10500*1.2]] # nPointsDCP
+    }
+    params_value = sobol.sample(problem, n, calc_second_order=False)
+    np.random.shuffle(params_value)
+    params_value = params_value[:n]
+    print(params_value.shape[0], "simulations running for an estimated", int(params_value.shape[0]*300/60/60/24/4), "days")
+    capPressures = np.random.normal(capPressure, capPressure/15., size=n)
 
     # n = params_value.shape[0]
     
-    ## Create the parameters for the sims.    
+    ## Create the parameters for the sims.
     for i in tqdm(range(n), desc='Creating the parameter samples'):
         
-        params = vp.GenerateParameters(resultsFolder, n=i, capPressure=capPressure, baseTerm=[200,150,75])
+        params = vp.GenerateParameters(resultsFolder, n=i, capPressure=capPressures[i],
+                                       baseTerm=baseTerm) 
         params['sim'] = i
-        params['CRVP'] = max(params['CRVP'], params['IOP'])
+        params['pCRV'] = max(params['pCRV'], params['IOP'])
         params['pCRA'] = (2./3.)*params.get('MAP',84) - params.get('IOP', 15) # Guidoboni 2014
         # params['pCRA'] = np.random.normal(52.8, 9.3)
 
@@ -243,18 +264,15 @@ if __name__=='__main__':
         params['confFileNameVein'] = f"{resultsFolder}/Coarse/tmp_sim_{i}_vein.conf"
         params['confFileNameArtery'] = f"{resultsFolder}/Coarse/tmp_sim_{i}_artery.conf"
 
-        # lLimFr, delta, eta, gamma, perfAreaFr, thetaMin, closeNeighFr, nTerm0, nTerm1, nPointsSVC = params_value[i]
-        # params['lLimFr'] = lLimFr
-        # params['delta'] = delta
-        # params['eta'] = eta
-        # params['gamma'] = gamma
-        # params['perfAreaFr'] = perfAreaFr
-        # params['thetaMin'] = thetaMin
-        # params['closeNeighFr'] = closeNeighFr
-        # params['nTerm0'] = int(nTerm0)
-        # params['nTerm1'] = int(nTerm1)
-        # params['nPointsSVC'] = int(nPointsSVC)
+        varyingParams = {key:(val if ("nPoints" not in key
+                                     and "nTerm" not in key)
+                              else int(val))
+                         for key, val in zip(problem['names'], params_value[i])}
+        params = {**params, **varyingParams} # Add the parameters sampled using Sobol sampling
 
+        if params['capPressure'] >= params['pCRA']:
+            params['capPressure'] = params['pCRA'] - (params['pCRA']-params['pCRV'])
+        
         fullListOfParams[i] = params
         
         ssm.Generate(c=0.8, saveIn=params['ssmFileName'], **params)
@@ -262,7 +280,7 @@ if __name__=='__main__':
     df = pd.DataFrame.from_dict({i:fullListOfParams[i] for i in range(len(fullListOfParams))}, orient='index')
     df.to_csv(resultsFolder + '/PopulationParameters.csv')
 
-    # sns.displot(data=df.melt(value_vars=['rCRA','vCRA','MAP','IOP','CRVP']),
+    # sns.displot(data=df.melt(value_vars=['rCRA','vCRA','MAP','IOP','pCRV']),
     #             col='variable', kind='kde')
     # plt.show()
 
@@ -278,4 +296,5 @@ if __name__=='__main__':
                                 total=len(fullListOfParams)):
                 f.write(','.join(str(x) for x in results) + '\n')
 
+    (Path(resultsFolder) / "OCTAMetrics").mkdir(exist_ok=True, parents=True) # Create directory 
     os.system(f"cp {os.path.join(resultsFolder, 'outputs.csv')} {os.path.join(resultsFolder, OCTAMetrics, 'OCTAMetrics.csv')}")
