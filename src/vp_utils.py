@@ -39,7 +39,7 @@ def GenerateParameters(resultsFolder:str,
                                 np.random.normal(84, 6)) # Dorner et al. 2009
     params['IOP']  = kwargs.get('IOP',
                                 np.random.normal(14.7, 2.8)) # Wang et al. 2018
-    params['CRVP'] = kwargs.get('CRVP',
+    params['pCRV'] = kwargs.get('pCRV',
                                 np.random.normal(15, 2.7)) # Stodmeister et al. 2013
     params['capPressure'] = kwargs.get('capPressure', 23) # Takahashi et al. 2009
     
@@ -54,8 +54,8 @@ def GenerateParameters(resultsFolder:str,
 
     # CCO parameters
     params['nTerm'] =  int(np.random.normal(baseTerm[0], 3))
-    params['nTerm0'] = int(np.random.normal(baseTerm[1], 20))
-    params['nTerm1'] = int(np.random.normal(baseTerm[2], 20))
+    params['nTerm0'] = int(np.random.normal(baseTerm[1], baseTerm[1]/15.))
+    params['nTerm1'] = int(np.random.normal(baseTerm[2], baseTerm[2]/15.))
 
     return params
 
@@ -238,12 +238,16 @@ class VirtualRetinalVasculature(AVGraph):
         {len(self.SVCVessels)} SVC vessels
         {len(self.ICPVessels)} ICP vessels
         {len(self.DCPVessels)} DCP vessels
+        pCRA: {getattr(self, "pCRA",np.nan)}
+        pCRV: {getattr(self, "pCRV",np.nan)}
         {len(self.ConnectingVessels)} inter-plexi vessels
         ICP/DCP depth: {self.zICP}/{self.zDCP} [cm]
         Compartment resistance: {self._RDummy}
         SVC file: {self._ccoFile}
         Node attributes: {self.nodeDataToSave}
         Edge attributes: {self.edgeDataToSave}
+        CRA: {self.CRA}
+        CRV: {self.CRV}
         '''
         ## TODO: add some metrics e.g., vessel density
         return description
