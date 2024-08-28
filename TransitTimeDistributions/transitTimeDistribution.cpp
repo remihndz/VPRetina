@@ -1,78 +1,78 @@
-#include <iostream>
-#include <vector>
-#include <stack>
-#include <utility>
-#include <fstream>
-#include <map>
-#include <deque>
-#include <boost/lexical_cast.hpp>
-#include <boost/range/combine.hpp>
-#include <boost/foreach.hpp>
-#include <cmath> // For isnan function
-#include <boost/program_options.hpp> // Argument parsing
+#include "transitTimeDistribution.hpp"
 
-#include "argumentParser.hpp"
+// //graph[i][j] stores the j-th neighbour of the node i
+pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff) 
+{
+  //initialize:
+  pathAnalysis pathData;
+  //remember the node (first) and the index of the next neighbour (second)
+  std::stack<State> to_do_stack;
+  std::deque<size_t> path; //remembering the way
+  std::vector<bool> visited(graph.size(), false); //caching visited - no need for searching in the path-vector
+  std::deque<double> pathTransitTime(cutoff), pathProbability(cutoff),
+    pathOEF(cutoff); // Remembering the probability and transit time of the path. Use the same way as `path` but stores (cumulating) times/probabilities instead of nodes.
 
-const double PI = 3.1415926535897932384626433832795028841971693993751058209;
-const double CompartmentVesselsLength = 0.36; // In cm the estimated length of the compartment based on a radius of 20um and resistance of 1e6:
-                                              // L = (1e6*pi*r^4)/(8*mu(r,hd=0.45)) 
+  // // Pre-allocate max size. Note: this keeps size() at 0.
+  // path.reserve(cutoff);
+  // pathTransitTime.reserve(cutoff);
+  // pathProbability.reserve(cutoff);
+  
+  //start in start!
+  to_do_stack.push(std::make_pair(start, 0));
+  visited[start]=true;    
+  path.push_back(start);
+  pathTransitTime.push_back(0);
+  pathProbability.push_back(1);
+  pathOEF.push_back(1);
 
-using namespace std;
-namespace po = boost::program_options;
-
-typedef vector<vector<double>> doubleMat;
-typedef vector<vector<size_t>> intMat;
-
-struct pathAnalysis {
-  vector<double> pathsTransitTimes;
-  vector<double> pathsProbabilities;
-  vector<size_t> pathsLength;
-  size_t numberOfPaths(){return pathsTransitTimes.size();}
-};
-
-void print(const vector<size_t> &path){
-  for (auto i: path)
-    cout << i << "->";
-  cout << endl;
-};
-
-void print(const deque<size_t> &path){
-  for (auto i: path)
-    cout << i << "->";
-  cout <<endl;
-};
-
-enum State {Unvisited, Visited, Visiting};
-struct Vertex{
-  vector<size_t> adj; // Nodes it is connected to
-  State state=Unvisited;
-  vector<double> flow, rad, ht, len,
-    tt, proba; // Edge properties
-};
-
-// typedef vector<Vertex> Graph;
-struct Graph{
-  vector<Vertex> vertices;
-  size_t size(){return vertices.size();}
-  size_t CRA, CRV; 
-};
-
-vector<size_t> getRoots(const Graph &graph){
-  vector<size_t> roots;
-  vector<bool> isRoot(graph.vertices.size(), true);
-  for (size_t u=0; u<graph.vertices.size(); u++){
-    for (size_t v: graph.vertices[u].adj)
-      isRoot[v] = false;
-  }
-  for (size_t u=0; u<graph.vertices.size(); u++)
-    if (isRoot[u]){
-      roots.push_back(u);
-    }      
-  return roots;
+  size_t pathCount = 0, oneMil = static_cast<size_t>(1e6);
+  while (!to_do_stack.empty())
+    {
+      State &current = to_do_stack.top();//current stays on the stack for the time being...
+      
+      if (current.first == end || current.second == graph.vertices[current.first].adj.size() || path.size()>cutoff)//goal reached or done with neighbours?
+	{
+          if (current.first == end)
+	    {
+	      pathCount+=1;
+	      pathData.pathsProbabilities.push_back(pathProbability.back());
+	      pathData.pathsTransitTimes.push_back(pathTransitTime.back());
+	      pathData.pathsLength.push_back(path.size());
+	      pathData.pathsOEF.push_back(pathOEF.back());
+	      if (pathCount % oneMil == 0){
+		std::cout << "\rNumber of paths found (in millions): " << pathCount / oneMil << std::flush;
+	      }
+	      // print(path);//found a way!      
+	    }
+          //backtrack:
+          visited[current.first]=false;//no longer considered visited
+	  //go a step back	
+          path.pop_back();
+	  pathProbability.pop_back();
+	  pathTransitTime.pop_back();
+          to_do_stack.pop();//no need to explore further neighbours   
+	}
+      else{//normal case: explore neighbours
+	size_t next=graph.vertices[current.first].adj[current.second];
+	current.second++;//update the next neighbour in the stack!
+	if(!visited[next]){
+	  //putting the neighbour on the todo-list
+	  to_do_stack.push(std::make_pair(next, 0));
+	  visited[next]=true;
+	  path.push_back(next);
+	  pathTransitTime.push_back(pathTransitTime.back()+graph.vertices[current.first].tt[current.second-1]);
+	  pathProbability.push_back(pathProbability.back()*graph.vertices[current.first].proba[current.second-1]);
+	  pathOEF.push_back(pathOEF.back()*(1.0-std::exp(-K*graph.vertices[current.first].tt[current.second-1])));
+	  // print(path);
+	}      
+      }
+    }
+  std::cout << std::endl;
+  return pathData;
 }
 
-vector<size_t> getLeaves(const Graph &graph){
-  vector<size_t> leaves;
+std::vector<size_t> getLeaves(const Graph &graph){
+  std::vector<size_t> leaves;
   size_t u = 0; // u will be the vertex index in adjacency matrix
   for (const Vertex &v: graph.vertices){
     if (v.adj.empty()) // No neighbors
@@ -105,111 +105,63 @@ void GetEdgeData(Graph &graph){
   }      
 }
 
-// pathAnalysis BFS(Graph &graph, size_t start, size_t end, size_t cutoff){
-//   intMat &adj = graph.vertices; // Graph adjacency matrix
-//   doubleMat &edgeProbabilities = graph.edgeProbabilities,
-//     &edgeTransitTimes = graph.edgeTransitTimes;
-//   //initialize:
-//   pathAnalysis pathData;
-//   vector<bool> visited(graph.size(), false);
-// }
-
-// //graph[i][j] stores the j-th neighbour of the node i
-pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff) 
-{
-  //initialize:
-  pathAnalysis pathData;
-  //remember the node (first) and the index of the next neighbour (second)
-  typedef pair<size_t, size_t> State;
-  stack<State> to_do_stack;
-  deque<size_t> path; //remembering the way
-  vector<bool> visited(graph.size(), false); //caching visited - no need for searching in the path-vector
-  deque<double> pathTransitTime(cutoff), pathProbability(cutoff); // Remembering the probability and transit time of the path. Use the same way as `path` but stores (cumulating) times/probabilities instead of nodes.
-
-  // // Pre-allocate max size. Note: this keeps size() at 0.
-  // path.reserve(cutoff);
-  // pathTransitTime.reserve(cutoff);
-  // pathProbability.reserve(cutoff);
-  
-  //start in start!
-  to_do_stack.push(make_pair(start, 0));
-  visited[start]=true;    
-  path.push_back(start);
-  pathTransitTime.push_back(0);
-  pathProbability.push_back(1);
-
-  size_t pathCount = 0, oneMil = static_cast<size_t>(1e6);
-  while (!to_do_stack.empty())
-    {
-      State &current = to_do_stack.top();//current stays on the stack for the time being...
-      
-      if (current.first == end || current.second == graph.vertices[current.first].adj.size() || path.size()>cutoff)//goal reached or done with neighbours?
-	{
-          if (current.first == end)
-	    {
-	      pathCount+=1;
-	      pathData.pathsProbabilities.push_back(pathProbability.back());
-	      pathData.pathsTransitTimes.push_back(pathTransitTime.back());
-	      pathData.pathsLength.push_back(path.size());
-	      if (pathCount % oneMil == 0){
-		cout << "\rNumber of paths found (in millions): " << pathCount / oneMil << flush;
-	      }
-	      // print(path);//found a way!      
-	    }
-          //backtrack:
-          visited[current.first]=false;//no longer considered visited
-	  //go a step back	
-          path.pop_back();
-	  pathProbability.pop_back();
-	  pathTransitTime.pop_back();
-          to_do_stack.pop();//no need to explore further neighbours   
-	}
-      else{//normal case: explore neighbours
-	size_t next=graph.vertices[current.first].adj[current.second];
-	current.second++;//update the next neighbour in the stack!
-	if(!visited[next]){
-	  //putting the neighbour on the todo-list
-	  to_do_stack.push(make_pair(next, 0));
-	  visited[next]=true;
-	  path.push_back(next);
-	  pathTransitTime.push_back(pathTransitTime.back()+graph.vertices[current.first].tt[current.second-1]);
-	  pathProbability.push_back(pathProbability.back()*graph.vertices[current.first].proba[current.second-1]);
-	  // print(path);
-	}      
-      }
-    }
-  cout << endl;
-  return pathData;
+std::vector<size_t> getRoots(const Graph &graph){
+  std::vector<size_t> roots;
+  std::vector<bool> isRoot(graph.vertices.size(), true);
+  for (size_t u=0; u<graph.vertices.size(); u++){
+    for (size_t v: graph.vertices[u].adj)
+      isRoot[v] = false;
+  }
+  for (size_t u=0; u<graph.vertices.size(); u++)
+    if (isRoot[u]){
+      roots.push_back(u);
+    }      
+  return roots;
 }
 
-void ReadGraph(ifstream& graphFile, Graph& graph)
+
+// Printing helpers
+void print(const std::vector<size_t> &path){
+  for (auto i: path)
+    std::cout << i << "->";
+  std::cout << std::endl;
+};
+
+void print(const std::deque<size_t> &path){
+  for (auto i: path)
+    std::cout << i << "->";
+  std::cout << std::endl;
+};
+
+
+void ReadGraph(std::ifstream& graphFile, Graph& graph)
 {
   // The nodes in the text file might be strings. We will map them to consecutive integers
-  map<string, size_t> nodesToInt;
-  string line;
+  std::map<std::string, size_t> nodesToInt;
+  std::string line;
   size_t nv;
-  string delimiter;
-  string sCRA, sCRV; // The node names as strings
+  std::string delimiter;
+  std::string sCRA, sCRV; // The node names as strings
   
   while (getline(graphFile, line)){
     // Be careful that the reader doesn't read another
     // graph attribute that ends in "CRA:" or "CRV:"
     // by keeping a blank space before the string
     // to compare 'line' to, e.g., " CRA:"
-    if (line.find(string(" CRA:")) != string::npos){
+    if (line.find(std::string(" CRA:")) != std::string::npos){
       delimiter = ": ";
       line.erase(0, line.find(delimiter)+delimiter.length());
       sCRA = line;
     }
-    else if (line.find(string(" CRV:")) != string::npos){
+    else if (line.find(std::string(" CRV:")) != std::string::npos){
       delimiter = ": ";
       line.erase(0, line.find(delimiter)+delimiter.length());
       sCRV = line;
     }
-    else if (line.find(string("# Nodes")) != string::npos){ // If found the '# Nodes: nNodes' line
+    else if (line.find(std::string("# Nodes")) != std::string::npos){ // If found the '# Nodes: nNodes' line
       delimiter = ": ";
       line.erase(0, line.find(delimiter)+delimiter.length()); // Removes the '# Nodes: ' before the number of nodes
-      // cout << "Number of vertices " << line << endl;
+      // std::cout << "Number of vertices " << line << std::endl;
       nv = boost::lexical_cast<size_t>(line);
       getline(graphFile, line); // Header line we could sparse
       break;
@@ -222,7 +174,7 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
   delimiter = ",";
   for (int i=0; i<nv; i++){
     getline(graphFile, line);
-    string node = line.substr(0, line.find(delimiter)); // Node name
+    std::string node = line.substr(0, line.find(delimiter)); // Node name
     nodesToInt[node] = i;    
   }
   graph.CRA = nodesToInt[sCRA];
@@ -230,41 +182,41 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
   
   // Get the edges
   size_t ne;
-  string edgeAttributeNames;
+  std::string edgeAttributeNames;
   int flowAttributePos=0, htAttributePos=0,
     radAttributePos=0, lenAttributePos=0; // That's how many comas we need to look for to find the column wiht flow values
   while (getline(graphFile, line)){
-      if (line.find(string("# Edges")) != string::npos){
+      if (line.find(std::string("# Edges")) != std::string::npos){
         delimiter = ": ";
 	line.erase(0, line.find(delimiter)+delimiter.length()); // Removes the '# Edges: ' before the number of edges
-	// cout << "Number of edges " << line << endl;
+	// std::cout << "Number of edges " << line << std::endl;
 	ne = stoi(line);      
 	getline(graphFile, edgeAttributeNames); // header line we could sparse
-	string edgeAttribute;
+	std::string edgeAttribute;
 	delimiter = ',';
 	edgeAttributeNames.append(delimiter);
 	int k =0;
-	while(edgeAttributeNames.find(delimiter) != string::npos){
+	while(edgeAttributeNames.find(delimiter) != std::string::npos){
 	  edgeAttribute = edgeAttributeNames.substr(0, edgeAttributeNames.find(delimiter));
-	  //cout << "Edge attribute: " << edgeAttribute << endl;
+	  //std::cout << "Edge attribute: " << edgeAttribute << std::endl;
 	  edgeAttributeNames.erase(0, edgeAttributeNames.find(delimiter) + delimiter.length());
 	  if (edgeAttribute.compare("flow")==0)
 	    {
-	      //cout << "Found flow columns at " << k << endl;
+	      //std::cout << "Found flow columns at " << k << std::endl;
 	      flowAttributePos = k;
 	    }
 	  else if (edgeAttribute.compare("hd")==0)
 	    {
-	      //cout << "Found ht columns at " << k << endl;
+	      //std::cout << "Found ht columns at " << k << std::endl;
 	      htAttributePos = k;
 	    }
 	  else if (edgeAttribute.compare("radius")==0)	    
 	    {
-	      //cout << "Found radius columns at " << k << endl;
+	      //std::cout << "Found radius columns at " << k << std::endl;
 	      radAttributePos = k;
 	    }
 	  else if (edgeAttribute.compare("length")==0){
-	    // cout << "Found length columns at " << k << endl;
+	    // std::cout << "Found length columns at " << k << std::endl;
 	    lenAttributePos = k;
 	  }
 	  k++;
@@ -277,7 +229,7 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
   size_t u,v;
   double f, h, r, l;
   delimiter = ',';
-  string nodeName;
+  std::string nodeName;
   for (int j=0; j<ne; j++){
     getline(graphFile, line);
     nodeName = line.substr(0, line.find(delimiter));
@@ -290,7 +242,7 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
     // Find the column that has flow value for the vessel
     int k=2; // Starts at one because we remove two columns (u and v the node names)
     line.append(delimiter); // In case flow or hematocrit is the last column
-    while (line.find(delimiter) != string::npos){
+    while (line.find(delimiter) != std::string::npos){
       if (k==flowAttributePos)
 	f = boost::lexical_cast<double>(line.substr(0, line.find(delimiter)));
       else if (k==htAttributePos){
@@ -310,7 +262,7 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
     }
 
     if ((u==graph.CRA || v==graph.CRV) && f<0)
-      cout << "CRA or CRV orientation is being switched!" << endl;
+      std::cout << "CRA or CRV orientation is being switched!" << std::endl;
     
     if (f>=0){
       graph.vertices[u].adj.push_back(v); // Add the edge
@@ -318,7 +270,7 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
       graph.vertices[u].flow.push_back(f);
       graph.vertices[u].rad.push_back(r);
       graph.vertices[u].len.push_back(l);
-      // cout << "Edge (" << u << "," << v << ") with flow " << graph[u].flow.back() << " and ht " << graph[u].ht.back() << endl;
+      // std::cout << "Edge (" << u << "," << v << ") with flow " << graph[u].flow.back() << " and ht " << graph[u].ht.back() << std::endl;
     }
     else{ // Reverse the edge to follow flowx
       // graph.vertices[v].adj.push_back(u);
@@ -327,67 +279,8 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
       graph.vertices[v].flow.push_back(-1.0*f);
       graph.vertices[v].rad.push_back(r);
       graph.vertices[v].len.push_back(l);
-      // cout << "Original edge was reversed to become (" << v << "," << u << ") with flow " << graph.vertices[v].flow.back() << " and ht " << graph.vertices[v].ht.back() << endl;
+      // std::cout << "Original edge was reversed to become (" << v << "," << u << ") with flow " << graph.vertices[v].flow.back() << " and ht " << graph.vertices[v].ht.back() << std::endl;
     }
   }
 };
 
-int main(int argc, char *argv[])
-{
-  
-  size_t cutoff;
-  std::vector<std::string> graphFiles;
-  commandLineParser(argc, argv, cutoff, graphFiles);
-  
-  ofstream fout;
-  ifstream graphFile;
-  double tt, pr, len;
-  for (auto graphFileName: graphFiles){
-
-    cout << "Analysing " << graphFileName << " ... " << endl;
-    Graph graph;
-    graphFile.open(graphFileName);
-
-    ReadGraph(graphFile, graph);
-    graphFile.close();
-    cout << "Graph read with " <<  graph.size() << " edges. CRA=" << graph.CRA
-	 << "; CRV=" << graph.CRV << endl;
-    GetEdgeData(graph);         
-    auto pathsData = dfs(graph, graph.CRA, graph.CRV, cutoff);
-
-    // // Write the graph data in binary (to save space, these arrays are pretty large)
-    cout << flush;
-    string fileName = graphFileName;
-
-    // NOTE: This can be read using numpy.fromfile(fileName.pathdata.bin, dtype=numpy.float32)
-    // By default, numpy.fromfile looks for DOUBLE which causes undefined behaviour!!
-    fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata.bin"); // Replace .graph with .pathdata.bin
-    fout.open(fileName);
-    struct pathInfo{
-      float tt, pr, len;
-    } p;
-    BOOST_FOREACH(boost::tie(tt, pr, len), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities, pathsData.pathsLength)){
-      if (true){ // (!((std::isnan(tt)) || (std::isinf(tt)) || (std::isnan(pr)) || (std::isinf(pr)))){
-	p.tt  = tt;
-	p.pr  = pr;
-	p.len = len;
-	fout.write(reinterpret_cast<char *>(&p), sizeof(p));
-      }
-    }
-    fout.close();
-
-    // // This writes as ascii (up to 6 significant digits?)
-    // fileName = graphFileName;
-
-    // fileName.replace(fileName.find(".graph"), string(".graph").length(), ".pathdata");
-    // fout.open(fileName);
-    
-    // BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
-    //   if (!((std::isnan(tt)) || (std::isinf(tt)))){
-    // 	fout << tt << "," << pr << '\n';
-    //   }
-    // }
-    // fout.close();
-  }  
-  return 0;
-}
