@@ -14,6 +14,8 @@
 #include "argumentParser.hpp"
 
 const double PI = 3.1415926535897932384626433832795028841971693993751058209;
+const double CompartmentVesselsLength = 0.36; // In cm the estimated length of the compartment based on a radius of 20um and resistance of 1e6:
+                                              // L = (1e6*pi*r^4)/(8*mu(r,hd=0.45)) 
 
 using namespace std;
 namespace po = boost::program_options;
@@ -299,9 +301,9 @@ void ReadGraph(ifstream& graphFile, Graph& graph)
 	r = boost::lexical_cast<double>(line.substr(0, line.find(delimiter)));
       }
       else if (k==lenAttributePos){
-	try {	  
-	  l = boost::lexical_cast<double>(line.substr(0, line.find(delimiter)));}
-	catch (...) {l = 1e20;}
+	l = boost::lexical_cast<double>(line.substr(0, line.find(delimiter)));
+	if (l>1e20)
+	  l = CompartmentVesselsLength; // Either u or v is the compartment.
       }
       line.erase(0, line.find(delimiter)+delimiter.length());
       k++;
@@ -348,14 +350,14 @@ int main(int argc, char *argv[])
 
     ReadGraph(graphFile, graph);
     graphFile.close();
-	    
+    cout << "Graph read with " <<  graph.size() << " edges. CRA=" << graph.CRA
+	 << "; CRV=" << graph.CRV << endl;
     GetEdgeData(graph);         
     auto pathsData = dfs(graph, graph.CRA, graph.CRV, cutoff);
 
     // // Write the graph data in binary (to save space, these arrays are pretty large)
     cout << flush;
     string fileName = graphFileName;
-
 
     // NOTE: This can be read using numpy.fromfile(fileName.pathdata.bin, dtype=numpy.float32)
     // By default, numpy.fromfile looks for DOUBLE which causes undefined behaviour!!
@@ -365,7 +367,7 @@ int main(int argc, char *argv[])
       float tt, pr, len;
     } p;
     BOOST_FOREACH(boost::tie(tt, pr, len), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities, pathsData.pathsLength)){
-      if (!((std::isnan(tt)) || (std::isinf(tt)) || (std::isnan(pr)) || (std::isinf(pr)))){
+      if (true){ // (!((std::isnan(tt)) || (std::isinf(tt)) || (std::isnan(pr)) || (std::isinf(pr)))){
 	p.tt  = tt;
 	p.pr  = pr;
 	p.len = len;
