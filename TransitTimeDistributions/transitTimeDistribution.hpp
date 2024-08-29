@@ -37,7 +37,7 @@ struct pathAnalysis {
   std::vector<double> pathsTransitTimes;
   std::vector<double> pathsProbabilities;
   std::vector<size_t> pathsLength;
-  std::vector<size_t> pathsOEF;
+  std::vector<double> pathsOEF;
   size_t numberOfPaths(){return pathsTransitTimes.size();}
 };
 
@@ -47,6 +47,8 @@ void GetEdgeData(Graph &graph);
 std::vector<size_t> getRoots(const Graph &graph);
 void print(const std::vector<size_t> &path);
 void print(const std::deque<size_t> &path);
+void print(const std::deque<double> &path);
+void print(const std::deque<float> &path);
 void ReadGraph(std::ifstream& graphFile, Graph& graph);
 
 #endif

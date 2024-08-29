@@ -10,9 +10,10 @@ int main(int argc, char *argv[])
   std::vector<std::string> graphFiles;
   commandLineParser(argc, argv, cutoff, graphFiles);
   
-  std::ofstream fout;
+  std::ofstream fout, foutLengths;
   std::ifstream graphFile;
-  double tt, pr, len, oef;
+  float tt, pr, oef;
+  size_t len;
   for (auto graphFileName: graphFiles){
 
     std::cout << "Analysing " << graphFileName << " ... " << std::endl;
@@ -28,38 +29,30 @@ int main(int argc, char *argv[])
 
     // // Write the graph data in binary (to save space, these arrays are pretty large)
     std::cout << std::flush;
-    std::string fileName = graphFileName;
+    std::string fileName = graphFileName,
+      fileNameLengths = graphFileName;
 
     // NOTE: This can be read using numpy.fromfile(fileName.pathdata.bin, dtype=numpy.float32)
     // By default, numpy.fromfile looks for DOUBLE which causes undefined behaviour!!
     fileName.replace(fileName.find(".graph"), std::string(".graph").length(), ".pathdata.bin"); // Replace .graph with .pathdata.bin
+    fileNameLengths.replace(fileNameLengths.find(".graph"), std::string(".graph").length(), ".pathlength.dat"); // Replace .graph with .pathlength.dat
     fout.open(fileName);
+    foutLengths.open(fileNameLengths);
+    
     struct pathInfo{
-      float tt, pr, oef, len;
+      float tt, pr, oef;
     } p;
     BOOST_FOREACH(boost::tie(tt, pr, oef, len), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities, pathsData.pathsOEF, pathsData.pathsLength)){
       if (true){ // (!((std::isnan(tt)) || (std::isinf(tt)) || (std::isnan(pr)) || (std::isinf(pr)))){
 	p.tt  = tt;
 	p.pr  = pr;
 	p.oef = oef;
-	p.len = len;
 	fout.write(reinterpret_cast<char *>(&p), sizeof(p));
+	foutLengths << len << std::endl;
       }
     }
     fout.close();
-
-    // // This writes as ascii (up to 6 significant digits?)
-    // fileName = graphFileName;
-
-    // fileName.replace(fileName.find(".graph"), std::string(".graph").length(), ".pathdata");
-    // fout.open(fileName);
-    
-    // BOOST_FOREACH(boost::tie(tt, pr), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities)){
-    //   if (!((std::isnan(tt)) || (std::isinf(tt)))){
-    // 	fout << tt << "," << pr << '\n';
-    //   }
-    // }
-    // fout.close();
+    foutLengths.close();
   }  
   return 0;
 }

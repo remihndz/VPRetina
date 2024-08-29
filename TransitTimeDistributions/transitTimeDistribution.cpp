@@ -9,8 +9,8 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
   std::stack<State> to_do_stack;
   std::deque<size_t> path; //remembering the way
   std::vector<bool> visited(graph.size(), false); //caching visited - no need for searching in the path-vector
-  std::deque<double> pathTransitTime(cutoff), pathProbability(cutoff),
-    pathOEF(cutoff); // Remembering the probability and transit time of the path. Use the same way as `path` but stores (cumulating) times/probabilities instead of nodes.
+  std::deque<float> pathTransitTime(cutoff), pathProbability(cutoff),
+    pathOEF(cutoff); // Remembering the probability and transit time of the path. Used the same way as `path` but stores (cumulating) times/probabilities instead of nodes.
 
   // // Pre-allocate max size. Note: this keeps size() at 0.
   // path.reserve(cutoff);
@@ -26,10 +26,11 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
   pathOEF.push_back(1);
 
   size_t pathCount = 0, oneMil = static_cast<size_t>(1e6);
+  std::cout << "\rNumber of paths found (in millions): " << pathCount / oneMil << std::flush;
+  
   while (!to_do_stack.empty())
     {
       State &current = to_do_stack.top();//current stays on the stack for the time being...
-      
       if (current.first == end || current.second == graph.vertices[current.first].adj.size() || path.size()>cutoff)//goal reached or done with neighbours?
 	{
           if (current.first == end)
@@ -38,8 +39,9 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
 	      pathData.pathsProbabilities.push_back(pathProbability.back());
 	      pathData.pathsTransitTimes.push_back(pathTransitTime.back());
 	      pathData.pathsLength.push_back(path.size());
-	      pathData.pathsOEF.push_back(pathOEF.back());
-	      if (pathCount % oneMil == 0){
+	      pathData.pathsOEF.push_back(1-pathOEF.back());
+	      
+	      if (pathCount % oneMil== 0){
 		std::cout << "\rNumber of paths found (in millions): " << pathCount / oneMil << std::flush;
 	      }
 	      // print(path);//found a way!      
@@ -50,6 +52,7 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
           path.pop_back();
 	  pathProbability.pop_back();
 	  pathTransitTime.pop_back();
+	  pathOEF.pop_back();
           to_do_stack.pop();//no need to explore further neighbours   
 	}
       else{//normal case: explore neighbours
@@ -62,7 +65,7 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
 	  path.push_back(next);
 	  pathTransitTime.push_back(pathTransitTime.back()+graph.vertices[current.first].tt[current.second-1]);
 	  pathProbability.push_back(pathProbability.back()*graph.vertices[current.first].proba[current.second-1]);
-	  pathOEF.push_back(pathOEF.back()*(1.0-std::exp(-K*graph.vertices[current.first].tt[current.second-1])));
+	  pathOEF.push_back(pathOEF.back()*(std::exp(-K*graph.vertices[current.first].tt[current.second-1])));
 	  // print(path);
 	}      
       }
@@ -128,6 +131,18 @@ void print(const std::vector<size_t> &path){
 };
 
 void print(const std::deque<size_t> &path){
+  for (auto i: path)
+    std::cout << i << "->";
+  std::cout << std::endl;
+};
+
+void print(const std::deque<double> &path){
+  for (auto i: path)
+    std::cout << i << "->";
+  std::cout << std::endl;
+};
+
+void print(const std::deque<float> &path){
   for (auto i: path)
     std::cout << i << "->";
   std::cout << std::endl;
