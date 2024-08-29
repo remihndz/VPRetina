@@ -15,6 +15,8 @@ from functools import partial
 from multiprocessing import set_start_method, get_context, Lock
 import traceback
 
+num_processes = 24
+
 edgeData = ['radius', 'length', 'viscosity', 'hd', 'flow', 'pressure drop']
 dirname = os.path.dirname(os.path.realpath(sys.argv[1]))
 
@@ -89,25 +91,25 @@ def func(iterrow):
 
     fileName = os.path.join(csvOutFileFolder , row['SVCFileName'].split('/')[-1] + f"_{G.MaculaFlow()*100:.0f}.csv")
 
-    with open(fileName, 'w') as f:
+    # with open(fileName, 'w') as f:
 
-        f.write(','.join(['idx']+edgeData+['inlet pressure',
-                                           'outlet pressure',
-                                           'inlet node',
-                                           'outlet node',
-                                           'inlet node type',
-                                           'outlet node type',
-                                           'inlet node plexus',
-                                           'outlet node plexus',
-                                           'isMacula'])) # Header
-        f.write('\n')
-        f.write('\n'.join(f'{idx},'+','.join(str(d.get(data, None)) for data in edgeData)
-                          +f",{G.nodes[n1]['nodal pressure']},{G.nodes[n2]['nodal pressure']}"
-                          +f",{n1},{n2}"
-                          +f",{G.nodes[n1]['nodeType']},{G.nodes[n2]['nodeType']}"
-                          +f",{G.nodes[n1]['plexus']},{G.nodes[n2]['plexus']}"
-                          +f",{int((0.15>np.linalg.norm([G.nodes[n1]['position'], G.nodes[n2]['position']], axis=1)).all())}"                          
-                          for idx,(n1,n2,d) in enumerate(G.edges.data()))) # Edges
+    #     f.write(','.join(['idx']+edgeData+['inlet pressure',
+    #                                        'outlet pressure',
+    #                                        'inlet node',
+    #                                        'outlet node',
+    #                                        'inlet node type',
+    #                                        'outlet node type',
+    #                                        'inlet node plexus',
+    #                                        'outlet node plexus',
+    #                                        'isMacula'])) # Header
+    #     f.write('\n')
+    #     f.write('\n'.join(f'{idx},'+','.join(str(d.get(data, None)) for data in edgeData)
+    #                       +f",{G.nodes[n1]['nodal pressure']},{G.nodes[n2]['nodal pressure']}"
+    #                       +f",{n1},{n2}"
+    #                       +f",{G.nodes[n1]['nodeType']},{G.nodes[n2]['nodeType']}"
+    #                       +f",{G.nodes[n1]['plexus']},{G.nodes[n2]['plexus']}"
+    #                       +f",{int((0.15>np.linalg.norm([G.nodes[n1]['position'], G.nodes[n2]['position']], axis=1)).all())}"                          
+    #                       for idx,(n1,n2,d) in enumerate(G.edges.data()))) # Edges
 
     return G.TRBF(), QCRA, 100*G.MaculaFlow(), pCRA, pCRV, row['rCRA'], nPointsSVC, nPointsICP, nPointsDCP
 
@@ -145,8 +147,6 @@ if __name__=='__main__':
     population.to_csv(os.path.join(csvOutFileFolder, "PopulationParameters.csv"))
 
     Haemodynamics = pd.DataFrame(index=population.index, columns=['TRBF', 'Original flow', 'Macula flow', 'pCRA', 'pCRV', 'rCRA', 'nPointsSVC', 'nPointsICP','nPointsDCP'])
-
-    num_processes = 10
 
     if num_processes > 1:
         with get_context("spawn").Pool(processes=num_processes) as pool:

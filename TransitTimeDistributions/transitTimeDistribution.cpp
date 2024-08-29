@@ -350,8 +350,6 @@ int main(int argc, char *argv[])
 
     ReadGraph(graphFile, graph);
     graphFile.close();
-    cout << "Graph read with " <<  graph.size() << " edges. CRA=" << graph.CRA
-	 << "; CRV=" << graph.CRV << endl;
     GetEdgeData(graph);         
     auto pathsData = dfs(graph, graph.CRA, graph.CRV, cutoff);
 
