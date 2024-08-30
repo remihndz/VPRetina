@@ -1,10 +1,14 @@
 #include "transitTimeDistribution.hpp"
 #include "argumentParser.hpp"
+#include <cfenv>
 
 namespace po = boost::program_options;
 
 int main(int argc, char *argv[])
 {
+
+  std::feclearexcept(FE_OVERFLOW);
+  std::feclearexcept(FE_UNDERFLOW);
   
   size_t cutoff;
   std::vector<std::string> graphFiles;
@@ -12,7 +16,7 @@ int main(int argc, char *argv[])
   
   std::ofstream fout, foutLengths;
   std::ifstream graphFile;
-  float tt, pr, oef;
+  double tt, pr;
   size_t len;
   for (auto graphFileName: graphFiles){
 
@@ -27,6 +31,15 @@ int main(int argc, char *argv[])
     GetEdgeData(graph);         
     auto pathsData = dfs(graph, graph.CRA, graph.CRV, cutoff);
 
+    if ((bool)std::fetestexcept(FE_OVERFLOW) || (bool)std::fetestexcept(FE_UNDERFLOW)){
+      std::cout << "Flags raised: [";
+      if ((bool)std::fetestexcept(FE_OVERFLOW))
+	std::cout << "OVERFLOW ";
+      if ((bool)std::fetestexcept(FE_UNDERFLOW))
+	std::cout << "UNDERFLOW ";
+      std::cout << "]." << std::endl;
+    }
+    
     // // Write the graph data in binary (to save space, these arrays are pretty large)
     std::cout << std::flush;
     std::string fileName = graphFileName,
@@ -40,13 +53,12 @@ int main(int argc, char *argv[])
     foutLengths.open(fileNameLengths);
     
     struct pathInfo{
-      float tt, pr, oef;
+      double tt, pr;
     } p;
-    BOOST_FOREACH(boost::tie(tt, pr, oef, len), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities, pathsData.pathsOEF, pathsData.pathsLength)){
+    BOOST_FOREACH(boost::tie(tt, pr, len), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities, pathsData.pathsLength)){
       if (true){ // (!((std::isnan(tt)) || (std::isinf(tt)) || (std::isnan(pr)) || (std::isinf(pr)))){
 	p.tt  = tt;
 	p.pr  = pr;
-	p.oef = oef;
 	fout.write(reinterpret_cast<char *>(&p), sizeof(p));
 	foutLengths << len << std::endl;
       }

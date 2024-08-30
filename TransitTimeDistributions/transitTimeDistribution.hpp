@@ -14,7 +14,6 @@
 #include <cmath> // For isnan function and exponential
 #include <boost/program_options.hpp> // Argument parsing
 
-const double K = 1e-4; // Oxygen permeability of vessel wall, in cm/s from S. Payne, Y. Xue, JF, Kuo, WK. El-Bouri; Unpublished
 const double PI = 3.1415926535897932384626433832795028841971693993751058209;
 const double CompartmentVesselsLength = 0.36; // In cm the estimated length of the compartment based on a radius of 20um and resistance of 1e6:
                                               // L = (1e6*pi*r^4)/(8*mu(r,hd=0.45)) 
@@ -37,7 +36,6 @@ struct pathAnalysis {
   std::vector<double> pathsTransitTimes;
   std::vector<double> pathsProbabilities;
   std::vector<size_t> pathsLength;
-  std::vector<double> pathsOEF;
   size_t numberOfPaths(){return pathsTransitTimes.size();}
 };
 

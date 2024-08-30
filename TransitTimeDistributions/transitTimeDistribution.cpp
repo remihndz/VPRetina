@@ -9,7 +9,7 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
   std::stack<State> to_do_stack;
   std::deque<size_t> path; //remembering the way
   std::vector<bool> visited(graph.size(), false); //caching visited - no need for searching in the path-vector
-  std::deque<float> pathTransitTime(cutoff), pathProbability(cutoff),
+  std::deque<double> pathTransitTime(cutoff), pathProbability(cutoff),
     pathOEF(cutoff); // Remembering the probability and transit time of the path. Used the same way as `path` but stores (cumulating) times/probabilities instead of nodes.
 
   // // Pre-allocate max size. Note: this keeps size() at 0.
@@ -39,12 +39,10 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
 	      pathData.pathsProbabilities.push_back(pathProbability.back());
 	      pathData.pathsTransitTimes.push_back(pathTransitTime.back());
 	      pathData.pathsLength.push_back(path.size());
-	      pathData.pathsOEF.push_back(1-pathOEF.back());
 	      
 	      if (pathCount % oneMil== 0){
 		std::cout << "\rNumber of paths found (in millions): " << pathCount / oneMil << std::flush;
 	      }
-	      // print(path);//found a way!      
 	    }
           //backtrack:
           visited[current.first]=false;//no longer considered visited
@@ -52,7 +50,6 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
           path.pop_back();
 	  pathProbability.pop_back();
 	  pathTransitTime.pop_back();
-	  pathOEF.pop_back();
           to_do_stack.pop();//no need to explore further neighbours   
 	}
       else{//normal case: explore neighbours
@@ -65,8 +62,6 @@ pathAnalysis dfs(Graph &graph, size_t start, size_t end, size_t cutoff)
 	  path.push_back(next);
 	  pathTransitTime.push_back(pathTransitTime.back()+graph.vertices[current.first].tt[current.second-1]);
 	  pathProbability.push_back(pathProbability.back()*graph.vertices[current.first].proba[current.second-1]);
-	  pathOEF.push_back(pathOEF.back()*(std::exp(-K*graph.vertices[current.first].tt[current.second-1])));
-	  // print(path);
 	}      
       }
     }
