@@ -826,14 +826,13 @@ class VirtualRetinalVasculature(AVGraph):
         CRA,CRV = self.CRA, self.CRV # This checks we only have one CRA/CRV
 
         # Add connections to the peripheral vascular compartment
-        originalHangingArteries, originalHangingVeins = self._OutletsNotCRV, self._InletsNotCRA 
-        hangingArteries, hangingVeins = self._OutletsNotCRV, self._InletsNotCRA
-        dummyParameters = {'dummy':True, 'resistance':self._RDummy, 'radius':self._rDummy, 'length':self._lDummy, 'hd':0.45}
         self.remove_nodes_from([n for n,t in self.nodes.data('nodeType') if t=='dummy']) # Remove the compartment if existing
+        originalHangingArteries, originalHangingVeins = self._OutletsNotCRV, self._InletsNotCRA 
+        dummyParameters = {'dummy':True, 'resistance':self._RDummy, 'radius':self._rDummy, 'length':self._lDummy, 'hd':0.45}
         self.add_node(-1, nodeType='dummy', plexus=0, position=np.array(3*[np.inf]))        
-        self.add_edges_from((a,-1,dummyParameters) for a in originalHangingArteries)
-        self.add_edges_from((-1,v,dummyParameters) for v in originalHangingVeins)
-
+        self.add_edges_from([(a,-1,dummyParameters) for a in originalHangingArteries])
+        self.add_edges_from([(-1,v,dummyParameters) for v in originalHangingVeins])
+        
         # Sanity check
         assert nx.is_directed_acyclic_graph(self), "Something went wrong and loops have been created. Assertion nx.is_directed_acyclic_graph(self) failed."
 
