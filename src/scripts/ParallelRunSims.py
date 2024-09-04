@@ -8,6 +8,7 @@ import vp_utils as vp
 import ssm_utils
 import cco_utils
 import svc 
+import metrics
 
 # from SVC.CCO.cpp import svc
 # from SVC.CCO import cco_utils
@@ -23,7 +24,6 @@ from SALib.sample import sobol
 import seaborn as sns
 from pathlib import Path
 
-import metrics
 import multiprocessing
 from functools import partial
 
@@ -32,8 +32,7 @@ from multiprocessing import get_context
 
 verbose = False
 FOV = 0.3
-resultsFolder = os.path.abspath('/media/Storage3.6TB/VariedPopulationOfRetinas')
-
+resultsFolder = os.path.abspath('/media/Storage3.6TB/FixingRadiusOscillations/')
 
 def _func(params):
     return params['sim'],0,1,2,3,4,5,6
@@ -205,7 +204,7 @@ if __name__=='__main__':
     times = []
     nTerms = []
 
-    n = 500
+    n = 20
 
     os.system("mkdir -p " + os.path.join(resultsFolder, "SSM"))
     os.system("mkdir -p " + os.path.join(resultsFolder, "Coarse"))
@@ -297,4 +296,4 @@ if __name__=='__main__':
                 f.write(','.join(str(x) for x in results) + '\n')
 
     (Path(resultsFolder) / "OCTAMetrics").mkdir(exist_ok=True, parents=True) # Create directory 
-    os.system(f"cp {os.path.join(resultsFolder, 'outputs.csv')} {os.path.join(resultsFolder, OCTAMetrics, 'OCTAMetrics.csv')}")
+    os.system(f"cp {os.path.join(resultsFolder, 'outputs.csv')} {os.path.join(resultsFolder, 'OCTAMetrics', 'OCTAMetrics.csv')}")
