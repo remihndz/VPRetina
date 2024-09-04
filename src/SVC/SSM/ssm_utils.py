@@ -92,7 +92,7 @@ class SSM_RetinalArcades(object):
             else:
                 filename = fileName+"_vein.cco"
                 radius, q = radiusCRA*k, vCRA*(radiusCRA**2)*np.pi  # vCRA*(radiusCRA**2)*np.pi*k*k
-                refPressure = kwargs.get('CRVP', 14) # Guidoboni 2014
+                refPressure = kwargs.get('pCRV', kwargs.get('CRVP', 14)) # Guidoboni 2014
                 dp = abs(kwargs.get('capPressure',23)-refPressure) # Takahashi 2009                                
 
 
