@@ -86,12 +86,10 @@ void GetEdgeData(Graph &graph){
   // Compute the probability of a RBC going from vertex u to v
   // and the transit time between u and v
   double totalRBC, rbc;
-  int u=0;
   for (Vertex &v: graph.vertices){ // Iterate through vertices v
     v.proba.resize(v.adj.size());
     v.tt.resize(v.adj.size());
     totalRBC = 0;
-    u++;
     for (size_t k=0; k<v.adj.size(); k++){ // Iterate through neighbors number k
       rbc = v.flow[k]*v.ht[k]; // Flow of RBC from u to v
       v.tt[k]    = PI*v.rad[k]*v.rad[k]*v.len[k]/v.flow[k];
@@ -237,7 +235,7 @@ void ReadGraph(std::ifstream& graphFile, Graph& graph)
 
   // Read edge data
   size_t u,v;
-  double f, h, r, l;
+  double f, h, r, l, maxFlow=0;
   delimiter = ',';
   std::string nodeName;
   for (int j=0; j<ne; j++){
@@ -273,6 +271,8 @@ void ReadGraph(std::ifstream& graphFile, Graph& graph)
 
     if ((u==graph.CRA || v==graph.CRV) && f<0)
       std::cout << "CRA or CRV orientation is being switched!" << std::endl;
+    if (maxFlow<std::abs(f))
+      maxFlow = std::abs(f);
     
     if (f>=0){
       graph.vertices[u].adj.push_back(v); // Add the edge
