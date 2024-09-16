@@ -1,5 +1,5 @@
 import sys
-sys.path.append("/media/Storage3.6TB/DataForIOVSPaper/src")
+sys.path.append("../src")
 from vp_utils  import VirtualRetinalVasculature
 import pandas as pd
 import numpy as np 
@@ -8,10 +8,11 @@ import networkx as nx
 import scipy.sparse as sp
 from tqdm.auto import tqdm
 
-outputGraphsDir = Path("/home/remi/VPRetina/TransitTimeDistributions/GraphsWithFlow/")
+outputGraphsDir = Path("/home/remi/VPRetina/TransitTimeDistributions/GraphsForExperimentOcclusion/")
 outputGraphsDir.mkdir(exist_ok=True)
 
 inputGraphsDir = Path('/media/Storage3.6TB/VariedPopulationOfRetinas/OCTAMetrics' )
+# inputGraphsDir = Path('/home/remi/MATLAB_3DOxygen/RetinaWith90percentOccludedVein')
 populationParameters = pd.concat((
     pd.read_csv('/media/Storage3.6TB/VariedPopulationOfRetinas/PopulationParameters.csv', index_col=0,
                 usecols=["Unnamed: 0","rCRA", "vCRA"]),
@@ -24,13 +25,15 @@ def ComputeFlow(G, qIn):
     CRA, CRV = G.CRA, G.CRV
 
     # Add a compartment for hanging nodes (that way we only have one inlet, one outlet)
+    G.remove_nodes_from([n for n,d in G.nodes.data('dummy') if d])
     hangingArteries, hangingVeins = G._OutletsNotCRV, G._InletsNotCRA
-    dummyParams = {'resistance':G._RDummy, 'radius':G._rDummy,
-                   'length':np.inf, 'hd':0.45, 'dummy':True}
-    G.add_node(-1, nodeType='dummy', plexus=0, position=np.array(3*[np.inf]))
-    G.add_edges_from((a, -1, dummyParams) for a in hangingArteries)
-    G.add_edges_from((-1, v, dummyParams) for v in hangingVeins)
-
+    if hangingArteries or hangingVeins:
+        dummyParams = {'resistance':G._RDummy, 'radius':G._rDummy,
+                       'length':np.inf, 'hd':0.45, 'dummy':True}
+        G.add_node(-1, nodeType='dummy', plexus=0, position=np.array(3*[np.inf]))
+        G.add_edges_from((a, -1, dummyParams) for a in hangingArteries)
+        G.add_edges_from((-1, v, dummyParams) for v in hangingVeins)
+     
     nv, ne = G.number_of_nodes(), G.number_of_edges()
     R = sp.dia_matrix((G.Resistances(), 0), shape=(ne,ne))
 
@@ -53,16 +56,18 @@ def ComputeFlow(G, qIn):
         d['ht']   = 0.45
     # Delete the compartment before saving?
     # G.remove_node(-1)
-    G.Write(outputGraphsDir / Path(G._fileName).name)
+    #G.Write(outputGraphsDir / Path(G._fileName).name)
         
-graphFiles = list(inputGraphsDir.glob("*.graph"))
+graphFiles = list(inputGraphsDir.glob("*.graph"))[:20]
 print(f"Found {len(graphFiles)} graph files.")
 
 for graphFile in tqdm(graphFiles):
     simIndex = int(graphFile.name.split("_")[1]) # Simulation number
     G = VirtualRetinalVasculature()
     G.Read(graphFile)
+    G._fileName = graphFile
     # rCRA, vCRA = populationParameters.loc[simIndex]
     # qIn = np.pi*rCRA*rCRA*vCRA
-    qIn = populationParameters.loc[simIndex, 'TRBF']
+    qIn = 1.# populationParameters.loc[simIndex, 'TRBF']
     ComputeFlow(G, qIn)            
+    G.Write("TransientTransitTimes/20NormalSimsWithNormalizedFlow/" + graphFile.name.replace("AV", "normalizedFlow"))
