@@ -106,7 +106,7 @@ class VirtualRetinalVasculature(AVGraph):
 
         nx.set_node_attributes(self, values=0 , name='plexus')
 
-        self._DiameterSmoothing()
+        # self._DiameterSmoothing()
 
         assert nx.is_directed_acyclic_graph(self), "Not a DAG after adding SVC capillaries."
         if kwargs.get('nPointsICP', 1000) and kwargs.get('nPointsDCP', 1000):
@@ -117,7 +117,7 @@ class VirtualRetinalVasculature(AVGraph):
             nx.relabel_nodes(self, {n:i for i,n in enumerate(self.nodes, start=self.number_of_nodes())}, copy=False)
             Smoothing(self, kwargs.get("alpha", 0.3), kwargs.get("nPointsSmoothing", 5))
 
-        self._DiameterSmoothing()
+        # self._DiameterSmoothing()
 
     @property
     def SVCVessels(self)->list:
@@ -282,7 +282,7 @@ class VirtualRetinalVasculature(AVGraph):
                 ','.join(str(d.get(attr, None)) for attr in self.edgeDataToSave)
                     for n1,n2,d in self.edges.data()))
                 
-    def Read(self, fileName:str):
+    def Read(self, fileName:str, smoothing:bool=False):
         '''
         Reads graph data from a file.
 
@@ -600,7 +600,7 @@ class VirtualRetinalVasculature(AVGraph):
         self.add_nodes_from(n for n in G.nodes.data())
         self.add_edges_from(e for e in G.edges.data())
 
-        self._DiameterSmoothing()
+        # self._DiameterSmoothing()
         assert nx.is_directed_acyclic_graph(self), "Something went wrong and loops have been created. Assertion nx.is_directed_acyclic_graph(self) failed."
         nx.convert_node_labels_to_integers(self)
         dummyNode = [n for n,t in self.nodes.data('nodeType') if t=='dummy']
@@ -787,17 +787,6 @@ class VirtualRetinalVasculature(AVGraph):
             Minimal radius of a capillary. Default 2.5 microns 
             (assumes unit of radius is cm).
         '''
-        # # Assign the minimum radius for capillaries
-        # newRadii = {(n1, n2):(r if r>capillaryRadius else capillaryRadius) 
-        #             for n1,n2,r in self.edges.data('radius')}
-        # nx.set_edge_attribute(self, values=newRadii, name='radius')
-
-        # # Smoothing radius transitions
-        # newRadii = {(n1,n2):np.mean([r for (_,_,r) in self.edges(nbunch=[n1,n2], data='radius')]) 
-        #             for n1,n2 in self.edges}
-        # nx.set_edge_attribute(self, values=newRadii, name='radius')
-
-        ## Attempt to do both in one list comprehension
         CRA, CRV = self.CRA, self.CRV
         newRadii = {(n1,n2): np.mean([r if r>capillaryRadius else capillaryRadius
                                       for r in (self[n2][n]['radius'] for n in self.successors(n2))]
@@ -805,11 +794,6 @@ class VirtualRetinalVasculature(AVGraph):
                                       for r in (self[n][n1]['radius'] for n in self.predecessors(n1)) 
                                        ] + [self[n1][n2]['radius']])
                     for n1,n2 in self.edges if n1!=CRA and n2!=CRV}
-
-        ### The self.edges([n1,n2]) returns edges from n1 or n2, not the parents of n1.
-        # newRadii = {(n1,n2):np.mean([r if r>capillaryRadius else capillaryRadius 
-        #                             for (_,_,r) in self.edges(nbunch=[n1,n2], data='radius')]) 
-        #             for n1,n2 in self.edges if n1!=CRA and n2!=CRV}
         nx.set_edge_attributes(self, values=newRadii, name='radius')                
                 
     def ComputeFlow(self) -> None:
