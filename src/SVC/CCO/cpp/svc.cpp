@@ -204,7 +204,7 @@ std::string SVC_coarse(const std::string configFilename, bool verbose, int nThre
   // para->create(outputFilename + "_tmp.vtp");
   // delete para;
   // MakeCylinder(outputFilename + "_tmp.vtp", 1.5);
-  MakeDisk(outputFilename + "_tmp.vtp", 0.0, 1.5); // WILL IT WORK IN 2D? 
+  MakeDisk(outputFilename + "_tmp.vtp", 0.0, 3); // WILL IT WORK IN 2D? 
   
   // Load the temporary domain
   SimpleDomain *domain = new SimpleDomain(outputFilename + "_tmp.vtp", nDraw, seed, generatorData, dist);
