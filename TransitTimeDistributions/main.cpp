@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
     foutLengths.open(fileNameLengths);
     
     struct pathInfo{
-      double tt, pr;
+      float tt, pr;
     } p;
     BOOST_FOREACH(boost::tie(tt, pr, len), boost::combine(pathsData.pathsTransitTimes, pathsData.pathsProbabilities, pathsData.pathsLength)){
       if (true){ // (!((std::isnan(tt)) || (std::isinf(tt)) || (std::isnan(pr)) || (std::isinf(pr)))){
