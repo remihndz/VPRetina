@@ -32,7 +32,7 @@ from multiprocessing import get_context
 
 verbose = False
 FOV = 0.3
-resultsFolder = os.path.abspath('/media/Storage3.6TB/FixingRadiusOscillations/')
+resultsFolder = os.path.abspath('/media/Storage3.6TB/IncreasedCCODomain_DoesItCreate4Arcades/')
 
 def _func(params):
     return params['sim'],0,1,2,3,4,5,6
