@@ -320,7 +320,7 @@ def CreatePNG(G:VirtualRetinalVasculature, plexus:int=0, FOV:float=0.3,
     ax.add_collection(lines)
     ax.set_xlim(-fov2, fov2); ax.set_ylim(-fov2,fov2);
     plt.axis('off')
-    imgFile = kwargs.get('imageFile', kwargs.get('imageFileName', G._ccoFile[:-4]+".png"))
+    imgFile = kwargs.get('imageFileName', G._ccoFile[:-4]+".png")
     fig.savefig(imgFile, bbox_inches='tight', pad_inches=0, dpi=kwargs.get('dpi',500), transparent=False)
     plt.close(fig)
     plt.style.use('default') # Restaure default style (white background)
