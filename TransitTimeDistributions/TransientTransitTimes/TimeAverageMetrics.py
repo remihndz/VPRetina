@@ -4,11 +4,13 @@ import pandas as pd
 from pathlib import Path
 
 df = pd.read_csv("./ExampleWaveForm_m.csv")
-df['area'] *= 1e2
-df['velocity'] *= 1e1
-df['flow'] = df['area']*df['velocity']
-df = df[df['time']>3.0]
-df['time'] = df['time']-3.0
+# df['area'] *= 1e2
+# df['velocity'] *= 1e1
+# df['flow'] = df['area']*df['velocity']
+# df = df[df['time']>3.0]
+# df['time'] = df['time']-3.0
+df[['time', 'flow']] = df[df.columns]
+df['flow'] *= 1e6
 
 RVOFolder = Path().cwd()/"20RVOSimsWithNormalizedFlow"
 HealthyFolder = Path().cwd()/"20NormalSimsWithNormalizedFlow"
